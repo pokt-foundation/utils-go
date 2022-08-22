@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// ParseIntegerFromPayload parses a string (or integer if any) value as an int from a JSON payload
+// IntegerFromJSONPayload parses a string (or integer if any) value as an int from a JSON payload
 // Keys must be given in the form: "key1.nestedKey1.nestedKey2"
 // Should this be refactored to also support strings?
 func IntegerFromJSONPayload(r io.Reader, key string) (int64, error) {
@@ -45,7 +45,7 @@ func IntegerFromJSONPayload(r io.Reader, key string) (int64, error) {
 	return valueDecimal, nil
 }
 
-// ParseIntegerJSONString parses a string (or integer if any) value as an int from a JSON string.
+// IntegerJSONString parses a string (or integer if any) value as an int from a JSON string.
 // Keys must be given in the form: "key1.nestedKey1.nestedKey2"
 // Should this be refactored to also support strings?
 func IntegerJSONString(r string, key string) (int64, error) {

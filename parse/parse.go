@@ -1,5 +1,5 @@
-// Package parse is a set of functions for parsing data
-package parse
+// Package parser is a set of functions for parsing data
+package parser
 
 import (
 	"encoding/json"

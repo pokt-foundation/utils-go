@@ -56,23 +56,43 @@ func NewCustomClient(retries int, timeout time.Duration) *Client {
 	}
 }
 
+func getJSONBodyFromParams(params any) (io.Reader, error) {
+	if params == nil {
+		return nil, nil
+	}
+
+	rawBody, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewBufferString(string(rawBody)), nil
+}
+
 // PostWithURLJSONParams does post request with JSON param
 func (c *Client) PostWithURLJSONParams(url string, params any, headers http.Header) (*http.Response, error) {
-	var body io.Reader
-
-	if params != nil {
-		rawBody, err := json.Marshal(params)
-		if err != nil {
-			return nil, err
-		}
-
-		body = bytes.NewBufferString(string(rawBody))
+	body, err := getJSONBodyFromParams(params)
+	if err != nil {
+		return nil, err
 	}
 
 	headers.Set("Content-Type", "application/json")
 	headers.Set("Connection", "close")
 
 	return c.Post(url, body, headers)
+}
+
+// PutWithURLJSONParams does post request with JSON param
+func (c *Client) PutWithURLJSONParams(url string, params any, headers http.Header) (*http.Response, error) {
+	body, err := getJSONBodyFromParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	headers.Set("Content-Type", "application/json")
+	headers.Set("Connection", "close")
+
+	return c.Put(url, body, headers)
 }
 
 // GetWithURLAndParams does get request with url values as params

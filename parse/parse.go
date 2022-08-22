@@ -1,3 +1,4 @@
+// Package parse is a set of functions for parsing data
 package parse
 
 import (
@@ -12,7 +13,7 @@ import (
 // ParseIntegerFromPayload parses a string (or integer if any) value as an int from a JSON payload
 // Keys must be given in the form: "key1.nestedKey1.nestedKey2"
 // Should this be refactored to also support strings?
-func ParseIntegerFromPayload(r io.Reader, key string) (int64, error) {
+func IntegerFromJSONPayload(r io.Reader, key string) (int64, error) {
 	// TODO: Parse nested fields
 	res := map[string]any{} // got'em 'any' haters
 
@@ -47,7 +48,7 @@ func ParseIntegerFromPayload(r io.Reader, key string) (int64, error) {
 // ParseIntegerJSONString parses a string (or integer if any) value as an int from a JSON string.
 // Keys must be given in the form: "key1.nestedKey1.nestedKey2"
 // Should this be refactored to also support strings?
-func ParseIntegerJSONString(r string, key string) (int64, error) {
+func IntegerJSONString(r string, key string) (int64, error) {
 	// TODO: Parse nested fields
 	res := map[string]any{} // got'em 'any' haters
 

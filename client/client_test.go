@@ -77,6 +77,35 @@ func TestClient_PutWithURLJSONParams(t *testing.T) {
 	c.NoError(response.Body.Close())
 }
 
+func TestClient_PostWithURLEncodedParams(t *testing.T) {
+	c := require.New(t)
+
+	client := NewDefaultClient()
+	c.NotEmpty(client)
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	mock.AddMockedResponseFromFile(http.MethodPost, "https://dummy.com", http.StatusCreated, "../mock-client/samples/dummy.json")
+
+	params := url.Values{}
+	params.Add("ohana", "family")
+
+	response, err := client.PostWithURLEncodedParams("https://dummy.com", params, http.Header{})
+	c.NoError(err)
+
+	c.NotEmpty(response)
+	c.Equal(http.StatusCreated, response.StatusCode)
+	c.NoError(response.Body.Close())
+
+	response, err = client.PostWithURLJSONParams("https://dummy.com", nil, http.Header{})
+	c.NoError(err)
+
+	c.NotEmpty(response)
+	c.Equal(http.StatusCreated, response.StatusCode)
+	c.NoError(response.Body.Close())
+}
+
 func TestClient_GetWithURLAndParams(t *testing.T) {
 	c := require.New(t)
 

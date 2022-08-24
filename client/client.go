@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gojektech/heimdall"
@@ -77,6 +78,20 @@ func (c *Client) PostWithURLJSONParams(url string, params any, headers http.Head
 	}
 
 	headers.Set("Content-Type", "application/json")
+	headers.Set("Connection", "close")
+
+	return c.Post(url, body, headers)
+}
+
+// PostWithURLEncodedParams does post request with URL encoded params
+func (c *Client) PostWithURLEncodedParams(url string, params url.Values, headers http.Header) (*http.Response, error) {
+	var body io.Reader
+
+	if len(params) != 0 {
+		body = strings.NewReader(params.Encode())
+	}
+
+	headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	headers.Set("Connection", "close")
 
 	return c.Post(url, body, headers)

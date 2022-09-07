@@ -59,3 +59,26 @@ func AddMultipleMockedResponses(method string, url string, statusCode int, respo
 
 	httpmock.RegisterResponder(method, url, responseFunction)
 }
+
+// AddMultipleMockedPlainResponses add a mocked response given one to one from each plain response
+func AddMultipleMockedPlainResponses(method string, url string, statusCodes []int, responseList []string) {
+	var mutex = sync.Mutex{}
+
+	nextResponseIndex := 0
+	responseFunction := func(req *http.Request) (*http.Response, error) {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		if nextResponseIndex >= len(responseList) {
+			return nil, ErrResponseNotFound
+		}
+
+		req.Response = httpmock.NewStringResponse(statusCodes[nextResponseIndex], responseList[nextResponseIndex])
+
+		nextResponseIndex++
+
+		return req.Response, nil
+	}
+
+	httpmock.RegisterResponder(method, url, responseFunction)
+}

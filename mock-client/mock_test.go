@@ -59,3 +59,36 @@ func TestAddMultipleMockedResponses(t *testing.T) {
 	c.Nil(response3)
 	c.Error(ErrResponseNotFound, err)
 }
+
+func TestAddMultipleMockedPlainResponses(t *testing.T) {
+	c := require.New(t)
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	AddMultipleMockedPlainResponses(http.MethodGet, "https://dummy.com", []int{
+		http.StatusOK,
+		http.StatusNotFound,
+	}, []string{
+		`{"ok": 1}`,
+		`{"not_ok": 2}`,
+	})
+
+	client := client.NewDefaultClient()
+
+	response1, err := client.Get("https://dummy.com", http.Header{})
+	c.Nil(err)
+	c.NotNil(response1)
+	c.Equal(http.StatusOK, response1.StatusCode)
+	c.NoError(response1.Body.Close())
+
+	response2, err := client.Get("https://dummy.com", http.Header{})
+	c.Nil(err)
+	c.NotNil(response2)
+	c.Equal(http.StatusNotFound, response2.StatusCode)
+	c.NoError(response2.Body.Close())
+
+	response3, err := client.Get("https://dummy.com", http.Header{})
+	c.Nil(response3)
+	c.Error(ErrResponseNotFound, err)
+}

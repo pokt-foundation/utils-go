@@ -15,3 +15,12 @@
 # vendor/
 
 .env
+
+.env
+tmp
+tmp/*
+*/tmp/*
+.DS_Store
+.vscode
+.vscode/*
+

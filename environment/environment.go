@@ -21,7 +21,7 @@ func MustGetInt64(varName string) int64 {
 
 	iVal, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
-		panic(fmt.Sprintf("environment error (int64): unable to parse required env var %s", varName))
+		panic(fmt.Sprintf("environment error (int64): unable to parse value %s to required env var %s", val, varName))
 	}
 
 	return iVal
@@ -71,7 +71,7 @@ func MustGetBool(varName string) bool {
 
 	iVal, err := strconv.ParseBool(val)
 	if err != nil {
-		panic(fmt.Sprintf("environment error (bool): unable to parse required env var %s", varName))
+		panic(fmt.Sprintf("environment error (bool): unable to parse value %s to required env var %s", val, varName))
 	}
 
 	return iVal

@@ -3,12 +3,10 @@ name: Build & Test
 on:
   pull_request:
     branches:
-      - main
-      - staging
+      - master
   push:
     branches:
-      - main
-      - staging
+      - master
 
 jobs:
   lint:

@@ -1,27 +1,33 @@
-name: Build and Test
+name: Build & Test
 
 on:
+  pull_request:
+    branches:
+      - main
+      - staging
   push:
-  
+    branches:
+      - main
+      - staging
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.18
+      - name: Check out code
+        uses: actions/checkout@v2
 
-    - name: Check out code
-      uses: actions/checkout@v2
+      - name: Run Revive Action
+        uses: docker://morphy/revive-action:v2
+        with:
+          config: revive.toml
 
-    - name: Run Revive Action
-      uses: docker://morphy/revive-action:v2
-      with:
-        config: revive.toml
-          
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -34,7 +40,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
-      - name: Set up cache   
+      - name: Set up cache
         uses: actions/cache@v2
         with:
           path: |

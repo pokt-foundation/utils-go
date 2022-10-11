@@ -1,3 +1,4 @@
+// Package random includes all funcs for generating randomness
 package random
 
 import (

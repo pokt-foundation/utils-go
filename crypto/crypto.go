@@ -1,3 +1,4 @@
+// Package client handles all encryption related funcs
 package crypto
 
 import (
@@ -8,8 +9,8 @@ import (
 	"io"
 )
 
-// Encrypt encrypts a string using AES256 encryption and returns the encrypted string
-func Encrypt(stringToEncrypt string, keyString string) (string, error) {
+// EncryptAES256 encrypts a string using AES256 encryption and returns the encrypted string
+func EncryptAES256(stringToEncrypt string, keyString string) (string, error) {
 	plaintext := []byte(stringToEncrypt)
 	plainKey := []byte(keyString)
 

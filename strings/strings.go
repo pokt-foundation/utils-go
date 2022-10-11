@@ -1,3 +1,4 @@
+// PAckage strings includes all funcs for manipulating and examining strings
 package strings
 
 // Contains returns a bool indicating if a string array contains a string

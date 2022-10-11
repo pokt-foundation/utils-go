@@ -1,4 +1,4 @@
-// Package client handles all encryption related funcs
+// Package crypto handles all encryption related funcs
 package crypto
 
 import (

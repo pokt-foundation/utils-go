@@ -13,5 +13,5 @@ func TestClient_HexString(t *testing.T) {
 
 	randomHex, err := HexString(length)
 	c.NoError(err)
-	c.Len(randomHex, length*2)
+	c.Len(randomHex, length)
 }

@@ -7,9 +7,14 @@ import (
 
 // HexString returns a random hex string of n length
 func HexString(n int) (string, error) {
-	bytes := make([]byte, n)
+	stringLength := n / 2
+
+	bytes := make([]byte, stringLength)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(bytes), nil
+
+	randomString := hex.EncodeToString(bytes)
+
+	return randomString, nil
 }

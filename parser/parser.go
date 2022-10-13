@@ -49,7 +49,6 @@ func IntegerFromJSONPayload(r io.Reader, key string) (int64, error) {
 // Keys must be given in the form: "key1.nestedKey1.nestedKey2"
 // Should this be refactored to also support strings?
 func IntegerJSONString(r string, key string) (int64, error) {
-	// TODO: Parse nested fields
 	res := map[string]any{} // got'em 'any' haters
 
 	err := json.Unmarshal([]byte(r), &res)

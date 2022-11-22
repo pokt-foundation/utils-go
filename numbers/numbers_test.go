@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClient_RoundFloat(t *testing.T) {
+func TestNumbers_RoundFloat(t *testing.T) {
 	c := require.New(t)
 
 	float := 0.12774863846293874093274
@@ -21,7 +21,7 @@ func TestClient_RoundFloat(t *testing.T) {
 	c.Equal(0.13, roundedFloat)
 }
 
-func TestClient_RoundDownFloat(t *testing.T) {
+func TestNumbers_RoundDownFloat(t *testing.T) {
 	c := require.New(t)
 
 	float := 0.12774863846293874093274
@@ -36,7 +36,7 @@ func TestClient_RoundDownFloat(t *testing.T) {
 	c.Equal(0.12, roundedDownFloat)
 }
 
-func TestClient_RoundUpFloat(t *testing.T) {
+func TestNumbers_RoundUpFloat(t *testing.T) {
 	c := require.New(t)
 
 	float := 0.12774863846293874093274

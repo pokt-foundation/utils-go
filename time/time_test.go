@@ -9,7 +9,7 @@ import (
 
 var dayLayout = "2006-01-02"
 
-func TestClient_GetFirstDayOfMonth(t *testing.T) {
+func TestTime_GetFirstDayOfMonth(t *testing.T) {
 	c := require.New(t)
 
 	tests := []struct {

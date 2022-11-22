@@ -1,3 +1,4 @@
+// Package time includes all funcs for dealing with times and dates
 package time
 
 import "time"

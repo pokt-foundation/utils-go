@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClient_ExactContains(t *testing.T) {
+func TestStrings_ExactContains(t *testing.T) {
 	c := require.New(t)
 
 	array := []string{"dog", "cat", "shrew"}

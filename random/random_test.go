@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClient_HexString(t *testing.T) {
+func TestRandom_HexString(t *testing.T) {
 	c := require.New(t)
 
 	length := 32

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClient_EncryptAES256(t *testing.T) {
+func TestCrypto_EncryptAES256(t *testing.T) {
 	c := require.New(t)
 
 	testKey := "test_key_a1ed328e09ef0e0ca39b6b1"

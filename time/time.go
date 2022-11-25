@@ -10,7 +10,7 @@ func GetFirstDayOfMonth(day time.Time) time.Time {
 	return time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
 }
 
-// Calculates the number of months between two dates
+// DiffMonths calculates the number of months between two dates
 func DiffMonths(start, end time.Time) int {
 	diffYears := end.Year() - start.Year()
 	if diffYears == 0 {
@@ -25,7 +25,7 @@ func DiffMonths(start, end time.Time) int {
 	return yearsInMonths + MonthsTillEndOfYear(start) + int(end.Month())
 }
 
-// Calculates the number of months until the end of the year
+// MonthsTillEndOfYear calculates the number of months until the end of the year
 func MonthsTillEndOfYear(month time.Time) int {
 	return int(12 - month.Month())
 }

@@ -3,6 +3,11 @@ package time
 
 import "time"
 
+// StartOfDay gets the start of the current day
+func StartOfDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+}
+
 // GetFirstDayOfMonth gets the first day of the month for any given time.Time value
 func GetFirstDayOfMonth(day time.Time) time.Time {
 	currentYear, currentMonth, _ := day.Date()

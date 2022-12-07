@@ -9,6 +9,31 @@ import (
 
 var dayLayout = "2006-01-02"
 
+func TestTime_StartOfDay(t *testing.T) {
+	c := require.New(t)
+
+	tests := []struct {
+		name           string
+		time, expected string
+	}{
+		{time: "2022-12-07T14:05:52-08:00", expected: "2022-12-07T00:00:00-08:00"},
+		{time: "2022-12-07T14:05:52Z", expected: "2022-12-07T00:00:00Z"},
+		{time: "2022-11-23T11:43:22-02:00", expected: "2022-11-23T00:00:00-02:00"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			testTime, err := time.Parse(time.RFC3339, test.time)
+			c.NoError(err)
+			expectedTime, err := time.Parse(time.RFC3339, test.expected)
+			c.NoError(err)
+
+			startOfDay := StartOfDay(testTime)
+			c.Equal(expectedTime, startOfDay)
+		})
+	}
+}
+
 func TestTime_GetFirstDayOfMonth(t *testing.T) {
 	c := require.New(t)
 
@@ -23,7 +48,8 @@ func TestTime_GetFirstDayOfMonth(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.date, func(t *testing.T) {
-			date, _ := time.Parse(dayLayout, test.date)
+			date, err := time.Parse(dayLayout, test.date)
+			c.NoError(err)
 
 			firstDayOfMonth := GetFirstDayOfMonth(date)
 			c.Equal(test.expected, firstDayOfMonth.Format(dayLayout))

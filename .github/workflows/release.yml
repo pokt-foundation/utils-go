@@ -1,0 +1,35 @@
+name: Tag & Go List
+
+on:
+  workflow_run:
+    workflows: ["Build & Test"]
+    branches: [master]
+    types:
+      - completed
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+
+      - name: Tag
+        uses: codfish/semantic-release-action@v2.0.0
+        id: semantic
+        with:
+          branches: |
+            ['master']
+          tag_format: "v${version}"
+          additional_packages: |
+            ['@semantic-release/commit-analyzer']
+          plugins: |
+            ['@semantic-release/commit-analyzer']
+
+      - name: Go List
+        if: steps.semantic.outputs.new-release-published == 'true'
+        run: |
+          GOPROXY=proxy.golang.org go list -m github.com/pokt-foundation/portal-db@v${{ steps.semantic.outputs.release-version }}

@@ -1,4 +1,4 @@
-// Package client is a wrapper for heimdall github.com/gojektech/heimdall with default and configurable options
+// Package client is a wrapper for the default go client with default and configurable options
 // It also has some utility functions to do actual requests
 package client
 
@@ -10,50 +10,37 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/gojektech/heimdall"
-	"github.com/gojektech/heimdall/httpclient"
 )
 
 const (
 	defaultHTTPClientTimeout = 5 * time.Second
 	defaultHTTPClientRetries = 0
-
-	initialBackoffTimeout = 2 * time.Millisecond
-	maxBackoffTimeout     = 9 * time.Millisecond
-	exponentFactor        = 2
-	maxJitterInterval     = 2 * time.Millisecond
+	backoffTime              = 2 * time.Second
 )
 
-var (
-	backoff = heimdall.NewExponentialBackoff(initialBackoffTimeout, maxBackoffTimeout, exponentFactor, maxJitterInterval)
-	retrier = heimdall.NewRetrier(backoff)
-)
-
-// Client is a wrapper for the heimdall client
+// Client is a wrapper for the default client
 type Client struct {
-	*httpclient.Client
+	Client  *http.Client
+	retries int
 }
 
 // NewDefaultClient returns httpclient instance with default config
 func NewDefaultClient() *Client {
 	return &Client{
-		Client: httpclient.NewClient(
-			httpclient.WithHTTPTimeout(defaultHTTPClientTimeout),
-			httpclient.WithRetryCount(defaultHTTPClientRetries),
-			httpclient.WithRetrier(retrier),
-		),
+		Client: &http.Client{
+			Timeout: defaultHTTPClientTimeout,
+		},
+		retries: defaultHTTPClientRetries,
 	}
 }
 
 // NewCustomClient returns httpclient instance with given custom config
 func NewCustomClient(retries int, timeout time.Duration) *Client {
 	return &Client{
-		Client: httpclient.NewClient(
-			httpclient.WithHTTPTimeout(timeout),
-			httpclient.WithRetryCount(retries),
-			httpclient.WithRetrier(retrier),
-		),
+		Client: &http.Client{
+			Timeout: timeout,
+		},
+		retries: retries,
 	}
 }
 
@@ -77,10 +64,17 @@ func (c *Client) PostWithURLJSONParams(url string, params any, headers http.Head
 		return nil, err
 	}
 
+	req, err := http.NewRequest(http.MethodPost, url, body)
+	if err != nil {
+		return nil, err
+	}
+
 	headers.Set("Content-Type", "application/json")
 	headers.Set("Connection", "close")
 
-	return c.Post(url, body, headers)
+	req.Header = headers
+
+	return c.DoRequestWithRetries(req)
 }
 
 // PostWithURLEncodedParams does post request with URL encoded params
@@ -91,10 +85,17 @@ func (c *Client) PostWithURLEncodedParams(url string, params url.Values, headers
 		body = strings.NewReader(params.Encode())
 	}
 
+	req, err := http.NewRequest(http.MethodPost, url, body)
+	if err != nil {
+		return nil, err
+	}
+
 	headers.Set("Content-Type", "application/x-www-form-urlencoded")
 	headers.Set("Connection", "close")
 
-	return c.Post(url, body, headers)
+	req.Header = headers
+
+	return c.DoRequestWithRetries(req)
 }
 
 // PutWithURLJSONParams does post request with JSON param
@@ -104,10 +105,17 @@ func (c *Client) PutWithURLJSONParams(url string, params any, headers http.Heade
 		return nil, err
 	}
 
+	req, err := http.NewRequest(http.MethodPut, url, body)
+	if err != nil {
+		return nil, err
+	}
+
 	headers.Set("Content-Type", "application/json")
 	headers.Set("Connection", "close")
 
-	return c.Put(url, body, headers)
+	req.Header = headers
+
+	return c.DoRequestWithRetries(req)
 }
 
 // GetWithURLAndParams does get request with url values as params
@@ -119,5 +127,32 @@ func (c *Client) GetWithURLAndParams(rawURL string, params url.Values, headers h
 
 	urlStruct.RawQuery = params.Encode()
 
-	return c.Get(urlStruct.String(), headers)
+	req, err := http.NewRequest(http.MethodGet, urlStruct.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.DoRequestWithRetries(req)
+}
+
+// DoRequestWithRetries does requests with the retries set on client and backoff time
+// just retries request with status code 5xx
+func (c *Client) DoRequestWithRetries(req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+	for i := 0; i < c.retries+1; i++ {
+		resp, err = c.Client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		// Just retry 5xx responses
+		if string(resp.Status[0]) != "5" {
+			break
+		}
+
+		time.Sleep(backoffTime)
+	}
+
+	return resp, nil
 }

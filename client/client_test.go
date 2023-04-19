@@ -127,3 +127,33 @@ func TestClient_GetWithURLAndParams(t *testing.T) {
 	c.Equal(http.StatusOK, response.StatusCode)
 	c.NoError(response.Body.Close())
 }
+
+func TestClient_DoRequestWithRetries(t *testing.T) {
+	c := require.New(t)
+
+	client := NewDefaultClient()
+	c.NotEmpty(client)
+
+	client.retries = 2
+
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	mock.AddMultipleMockedPlainResponses(http.MethodGet, "https://dummy.com", []int{
+		http.StatusInternalServerError,
+		http.StatusOK,
+	}, []string{
+		`{"ok": 1}`,
+		`{"not_ok": 2}`,
+	})
+
+	params := url.Values{}
+	params.Set("family", "ohana")
+
+	response, err := client.GetWithURLAndParams("https://dummy.com", params, http.Header{})
+	c.NoError(err)
+
+	c.NotEmpty(response)
+	c.Equal(http.StatusOK, response.StatusCode)
+	c.NoError(response.Body.Close())
+}

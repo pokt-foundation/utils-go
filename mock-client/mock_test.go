@@ -19,7 +19,7 @@ func TestAddMockedResponseFromFile(t *testing.T) {
 
 	client := client.NewDefaultClient()
 
-	response, err := client.Get("https://dummy.com", http.Header{})
+	response, err := client.Client.Get("https://dummy.com")
 	c.Nil(err)
 	c.NotNil(response)
 	c.Equal(http.StatusCreated, response.StatusCode)
@@ -43,19 +43,19 @@ func TestAddMultipleMockedResponses(t *testing.T) {
 
 	client := client.NewDefaultClient()
 
-	response1, err := client.Get("https://dummy.com", http.Header{})
+	response1, err := client.Client.Get("https://dummy.com")
 	c.Nil(err)
 	c.NotNil(response1)
 	c.Equal(http.StatusOK, response1.StatusCode)
 	c.NoError(response1.Body.Close())
 
-	response2, err := client.Get("https://dummy.com", http.Header{})
+	response2, err := client.Client.Get("https://dummy.com")
 	c.Nil(err)
 	c.NotNil(response2)
 	c.Equal(http.StatusOK, response2.StatusCode)
 	c.NoError(response2.Body.Close())
 
-	response3, err := client.Get("https://dummy.com", http.Header{})
+	response3, err := client.Client.Get("https://dummy.com")
 	c.Nil(response3)
 	c.Error(ErrResponseNotFound, err)
 }
@@ -76,19 +76,19 @@ func TestAddMultipleMockedPlainResponses(t *testing.T) {
 
 	client := client.NewDefaultClient()
 
-	response1, err := client.Get("https://dummy.com", http.Header{})
+	response1, err := client.Client.Get("https://dummy.com")
 	c.Nil(err)
 	c.NotNil(response1)
 	c.Equal(http.StatusOK, response1.StatusCode)
 	c.NoError(response1.Body.Close())
 
-	response2, err := client.Get("https://dummy.com", http.Header{})
+	response2, err := client.Client.Get("https://dummy.com")
 	c.Nil(err)
 	c.NotNil(response2)
 	c.Equal(http.StatusNotFound, response2.StatusCode)
 	c.NoError(response2.Body.Close())
 
-	response3, err := client.Get("https://dummy.com", http.Header{})
+	response3, err := client.Client.Get("https://dummy.com")
 	c.Nil(response3)
 	c.Error(ErrResponseNotFound, err)
 }

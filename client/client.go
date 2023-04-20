@@ -140,7 +140,11 @@ func (c *Client) GetWithURLAndParams(rawURL string, params url.Values, headers h
 func (c *Client) DoRequestWithRetries(req *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
-	for i := 0; i < c.retries+1; i++ {
+
+	// at least one attempt is made, regardless of how many retries were on config
+	attempts := c.retries + 1
+
+	for i := 0; i < attempts; i++ {
 		resp, err = c.Client.Do(req)
 		if err != nil {
 			return nil, err
@@ -151,7 +155,10 @@ func (c *Client) DoRequestWithRetries(req *http.Request) (*http.Response, error)
 			break
 		}
 
-		time.Sleep(backoffTime)
+		// On the last attempt there's no reason to wait the backoff time
+		if i != attempts-1 {
+			time.Sleep(backoffTime)
+		}
 	}
 
 	return resp, nil

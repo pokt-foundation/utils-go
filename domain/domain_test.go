@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func testExtractDomain(t *testing.T) {
+func TestExtractDomain(t *testing.T) {
 	// Valid URLs
 	validTests := []struct {
 		inputURL       string

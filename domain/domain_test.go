@@ -31,13 +31,4 @@ func testExtractDomain(t *testing.T) {
 			t.Errorf("extractDomain(%q) = %q, expected %q", tc.inputURL, domain, tc.expectedDomain)
 		}
 	}
-
-	// Invalid URLs
-	invalidTests := []string{}
-	for _, test := range invalidTests {
-		_, err := extractDomain(test)
-		if err == nil {
-			t.Errorf("extractDomain(%q) did not return an error", test)
-		}
-	}
 }

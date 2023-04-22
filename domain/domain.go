@@ -1,3 +1,4 @@
+// Package domain includes a domain extraction function from urls
 package domain
 
 import (
@@ -11,6 +12,9 @@ var (
 	errInvalidURL = errors.New("invalid URL")
 )
 
+// ExtractDomain extracts the domain given an URL, it is not
+// perfect, given an url like https://example.com.do it will return
+// ".com.do" but for most urls it will work just fine.
 func ExtractDomain(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {

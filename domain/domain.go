@@ -11,7 +11,7 @@ var (
 	errInvalidURL = errors.New("invalid URL")
 )
 
-func extractDomain(inputURL string) (string, error) {
+func ExtractDomain(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
 		return "", errInvalidURL

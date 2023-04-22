@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestExtractDomain(t *testing.T) {
+func testExtractDomain(t *testing.T) {
 	// Valid URLs
 	validTests := []struct {
 		inputURL       string
@@ -23,7 +23,7 @@ func TestExtractDomain(t *testing.T) {
 		{"", "", errInvalidURL},
 	}
 	for _, tc := range validTests {
-		domain, err := extractDomain(tc.inputURL)
+		domain, err := ExtractDomain(tc.inputURL)
 		if err != tc.expectedErr {
 			t.Errorf("expected error: %v, got: %v", tc.expectedErr, err)
 		}

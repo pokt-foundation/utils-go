@@ -70,7 +70,6 @@ func (c *Client) PostWithURLJSONParams(url string, params any, headers http.Head
 	}
 
 	headers.Set("Content-Type", "application/json")
-	headers.Set("Connection", "close")
 
 	req.Header = headers
 
@@ -91,7 +90,6 @@ func (c *Client) PostWithURLEncodedParams(url string, params url.Values, headers
 	}
 
 	headers.Set("Content-Type", "application/x-www-form-urlencoded")
-	headers.Set("Connection", "close")
 
 	req.Header = headers
 
@@ -111,7 +109,6 @@ func (c *Client) PutWithURLJSONParams(url string, params any, headers http.Heade
 	}
 
 	headers.Set("Content-Type", "application/json")
-	headers.Set("Connection", "close")
 
 	req.Header = headers
 

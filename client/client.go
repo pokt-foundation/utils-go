@@ -44,6 +44,24 @@ func NewCustomClient(retries int, timeout time.Duration) *Client {
 	}
 }
 
+// CustomClientOpts
+type CustomClientOpts struct {
+	Retries   int
+	Timeout   time.Duration
+	Transport http.RoundTripper
+}
+
+// NewCustomClientWithOptions returns httpclient instance with given custom config in the opts struct
+func NewCustomClientWithOptions(opts CustomClientOpts) *Client {
+	return &Client{
+		Client: &http.Client{
+			Timeout:   opts.Timeout,
+			Transport: opts.Transport,
+		},
+		retries: opts.Retries,
+	}
+}
+
 func getJSONBodyFromParams(params any) (io.Reader, error) {
 	if params == nil {
 		return nil, nil

@@ -19,6 +19,13 @@ func TestNewDefaultClient(t *testing.T) {
 
 	client = NewCustomClient(5, 3*time.Second)
 	c.NotEmpty(client)
+
+	client = NewCustomClientWithOptions(CustomClientOpts{
+		Retries:   5,
+		Timeout:   3 * time.Second,
+		Transport: &http.Transport{},
+	})
+	c.NotEmpty(client)
 }
 
 func TestClient_PostWithURLJSONParams(t *testing.T) {

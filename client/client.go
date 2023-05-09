@@ -4,6 +4,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -77,12 +78,17 @@ func getJSONBodyFromParams(params any) (io.Reader, error) {
 
 // PostWithURLJSONParams does post request with JSON param
 func (c *Client) PostWithURLJSONParams(url string, params any, headers http.Header) (*http.Response, error) {
+	return c.PostWithURLJSONParamsWithCtx(context.Background(), url, params, headers)
+}
+
+// PostWithURLJSONParamsWithCtx does post request with JSON param
+func (c *Client) PostWithURLJSONParamsWithCtx(ctx context.Context, url string, params any, headers http.Header) (*http.Response, error) {
 	body, err := getJSONBodyFromParams(params)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -96,13 +102,18 @@ func (c *Client) PostWithURLJSONParams(url string, params any, headers http.Head
 
 // PostWithURLEncodedParams does post request with URL encoded params
 func (c *Client) PostWithURLEncodedParams(url string, params url.Values, headers http.Header) (*http.Response, error) {
+	return c.PostWithURLEncodedParamsWithCtx(context.Background(), url, params, headers)
+}
+
+// PostWithURLEncodedParamsWithCtx does post request with URL encoded params
+func (c *Client) PostWithURLEncodedParamsWithCtx(ctx context.Context, url string, params url.Values, headers http.Header) (*http.Response, error) {
 	var body io.Reader
 
 	if len(params) != 0 {
 		body = strings.NewReader(params.Encode())
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -116,12 +127,17 @@ func (c *Client) PostWithURLEncodedParams(url string, params url.Values, headers
 
 // PutWithURLJSONParams does post request with JSON param
 func (c *Client) PutWithURLJSONParams(url string, params any, headers http.Header) (*http.Response, error) {
+	return c.PutWithURLJSONParamsWithCtx(context.Background(), url, params, headers)
+}
+
+// PutWithURLJSONParamsWithCtx does post request with JSON param
+func (c *Client) PutWithURLJSONParamsWithCtx(ctx context.Context, url string, params any, headers http.Header) (*http.Response, error) {
 	body, err := getJSONBodyFromParams(params)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, url, body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +151,11 @@ func (c *Client) PutWithURLJSONParams(url string, params any, headers http.Heade
 
 // GetWithURLAndParams does get request with url values as params
 func (c *Client) GetWithURLAndParams(rawURL string, params url.Values, headers http.Header) (*http.Response, error) {
+	return c.GetWithURLAndParamsWithCtx(context.Background(), rawURL, params, headers)
+}
+
+// GetWithURLAndParamsWithCtx does get request with url values as params
+func (c *Client) GetWithURLAndParamsWithCtx(ctx context.Context, rawURL string, params url.Values, headers http.Header) (*http.Response, error) {
 	urlStruct, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
@@ -142,7 +163,7 @@ func (c *Client) GetWithURLAndParams(rawURL string, params url.Values, headers h
 
 	urlStruct.RawQuery = params.Encode()
 
-	req, err := http.NewRequest(http.MethodGet, urlStruct.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStruct.String(), nil)
 	if err != nil {
 		return nil, err
 	}

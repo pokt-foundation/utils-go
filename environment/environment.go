@@ -42,6 +42,36 @@ func GetInt64(varName string, defaultValue int64) int64 {
 	return iVal
 }
 
+// GetFloat64 gets the env var as a float64
+func GetFloat64(varName string, defaultValue float64) float64 {
+	val, ok := os.LookupEnv(varName)
+	if !ok {
+		return defaultValue
+	}
+
+	iVal, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return defaultValue
+	}
+
+	return iVal
+}
+
+// MuastGetFloat64 gets the required env var as a float64 and panics if is not present
+func MustGetFloat64(varName string) float64 {
+	val, ok := os.LookupEnv(varName)
+	if !ok {
+		panic(fmt.Sprintf("environment error (float64): required env var %s not found", varName))
+	}
+
+	iVal, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		panic(fmt.Sprintf("environment error (float64): unable to parse: %v. env name: %s", err, varName))
+	}
+
+	return iVal
+}
+
 // MustGetString gets the required environment var as a string and panics if it is not present
 func MustGetString(varName string) string {
 	val, _ := os.LookupEnv(varName)

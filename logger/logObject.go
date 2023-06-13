@@ -129,7 +129,10 @@ func (e logPropertiesMarshaler) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 			enc.AddUintptr(key, v)
 		// Avoid this case, it's used as the last resourse
 		default:
-			enc.AddReflected(key, v)
+			err := enc.AddReflected(key, v)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

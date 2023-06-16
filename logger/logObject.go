@@ -42,12 +42,16 @@ func (w *wrapper) LogProperties() map[string]any {
 
 // ErrObject returns an LogObject containing error information
 func ErrObject(err error) LogObject {
-	return &wrapper{
-		Name: "errorMsg",
-		Fields: map[string]any{
-			"error": err.Error(),
-		},
+	fields := map[string]any{
+		"error": "empty error",
 	}
+	if err != nil {
+		fields["error"] = err.Error()
+	}
+
+	return &wrapper{
+		Name:   "errorMsg",
+		Fields: fields}
 }
 
 // InfoObject returns an LogObject containing information
@@ -62,11 +66,16 @@ func InfoObject(msg string) LogObject {
 
 // InfoObject returns an LogObject containing information
 func WarnObject(err error) LogObject {
+	fields := map[string]any{
+		"error": "empty error",
+	}
+	if err != nil {
+		fields["error"] = err.Error()
+	}
+
 	return &wrapper{
-		Name: "warnMsg",
-		Fields: map[string]any{
-			"error": err.Error(),
-		},
+		Name:   "warnMsg",
+		Fields: fields,
 	}
 }
 
@@ -86,48 +95,86 @@ func (e logPropertiesMarshaler) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	for key, value := range e {
 		switch v := value.(type) {
 		case string:
-			enc.AddString(key, v)
+			if v != "" {
+				enc.AddString(key, v)
+			}
 		case int:
-			enc.AddInt(key, v)
+			if v != 0 {
+				enc.AddInt(key, v)
+			}
 		case bool:
 			enc.AddBool(key, v)
 		case time.Time:
 			enc.AddTime(key, v)
 		case float64:
-			enc.AddFloat64(key, v)
+			if v != 0 {
+				enc.AddFloat64(key, v)
+			}
 		case float32:
-			enc.AddFloat32(key, v)
+			if v != 0 {
+				enc.AddFloat32(key, v)
+			}
 		case int64:
-			enc.AddInt64(key, v)
+			if v != 0 {
+				enc.AddInt64(key, v)
+			}
 		case int32:
-			enc.AddInt32(key, v)
+			if v != 0 {
+				enc.AddInt32(key, v)
+			}
 		case int16:
-			enc.AddInt16(key, v)
+			if v != 0 {
+				enc.AddInt16(key, v)
+			}
 		case int8:
-			enc.AddInt8(key, v)
+			if v != 0 {
+				enc.AddInt8(key, v)
+			}
 		case []byte:
-			enc.AddBinary(key, v)
+			if len(v) != 0 {
+				enc.AddBinary(key, v)
+			}
 		case []rune:
-			enc.AddByteString(key, []byte(string(v)))
+			if len(v) != 0 {
+				enc.AddByteString(key, []byte(string(v)))
+			}
 		case complex128:
-			enc.AddComplex128(key, v)
+			if v != 0 {
+				enc.AddComplex128(key, v)
+			}
 		case complex64:
-			enc.AddComplex64(key, v)
+			if v != 0 {
+				enc.AddComplex64(key, v)
+			}
 		case time.Duration:
-			enc.AddDuration(key, v)
+			if v != 0 {
+				enc.AddDuration(key, v)
+			}
 		case uint:
-			enc.AddUint(key, v)
+			if v != 0 {
+				enc.AddUint(key, v)
+			}
 		case uint64:
-			enc.AddUint64(key, v)
+			if v != 0 {
+				enc.AddUint64(key, v)
+			}
 		case uint32:
-			enc.AddUint32(key, v)
+			if v != 0 {
+				enc.AddUint32(key, v)
+			}
 		case uint16:
-			enc.AddUint16(key, v)
+			if v != 0 {
+				enc.AddUint16(key, v)
+			}
 		case uint8:
-			enc.AddUint8(key, v)
+			if v != 0 {
+				enc.AddUint8(key, v)
+			}
 		case uintptr:
-			enc.AddUintptr(key, v)
-		// Avoid this case, it's used as the last resourse
+			if v != 0 {
+				enc.AddUintptr(key, v)
+			}
+		// Avoid this case, it's used as the last resort
 		default:
 			err := enc.AddReflected(key, v)
 			if err != nil {

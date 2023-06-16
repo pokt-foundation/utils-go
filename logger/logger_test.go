@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -42,7 +43,7 @@ func (t testStruct) LogName() string {
 	return "demoTest-struct"
 }
 
-func TestLoggerInfo(t *testing.T) {
+func TestLogger(t *testing.T) {
 	mockConsoleWriter := &MockConsoleWriter{}
 	logger := &Logger{
 		ServiceName:    "test-service",
@@ -62,12 +63,13 @@ func TestLoggerInfo(t *testing.T) {
 		objects    []LogObject
 		demoStruct testStruct
 		wantOutput []string
+		logMethod  func(logger *Logger, eventName string, objects []LogObject)
 	}{
 		{
 			name:      "Info log with single object",
 			eventName: "testEvent",
 			demoStruct: testStruct{
-				StringValue: "lala",
+				StringValue: "infoTest",
 				IntValue:    78,
 			},
 			objects: []LogObject{
@@ -76,32 +78,75 @@ func TestLoggerInfo(t *testing.T) {
 			wantOutput: []string{
 				`testEvent`,
 				`"infoMsg": {"msg": "info error: something went wrong but it's ok tho"}`,
-				`"demoTest-struct": {"stringProp": "lala", "intProp": 78, "boolProp": false}}`,
-				`"service": "test-service"`,
+				`"demoTest-struct"`,
+				`"stringProp": "infoTest"`,
+				`"intProp": 78`,
+				`"boolProp": false`,
 			},
+			logMethod: (*Logger).Info,
+		},
+		{
+			name:      "Warning log with multiple objects",
+			eventName: "warningEvent",
+			demoStruct: testStruct{
+				StringValue: "warnTest",
+				BoolValue:   true,
+			},
+			objects: []LogObject{
+				WarnObject(errors.New("Warning: app not found in this region")),
+			},
+			wantOutput: []string{
+				`warningEvent`,
+				`"warnMsg": {"error": "Warning: app not found in this region"}`,
+				`"demoTest-struct"`,
+				`"stringProp": "warnTest"`,
+				`"boolProp": true`,
+			},
+			logMethod: (*Logger).Warning,
+		},
+		{
+			name:      "Error log with multiple objects",
+			eventName: "errorEvent",
+			demoStruct: testStruct{
+				StringValue: "errTest",
+			},
+			objects: []LogObject{
+				ErrObject(errors.New("error occurred")),
+				MapObject("extraData", map[string]interface{}{
+					"key1": "value1",
+					"key2": 123,
+				}),
+				ErrObject(nil),
+			},
+			wantOutput: []string{
+				`errorEvent`,
+				`"errorMsg": {"error": "error occurred"}`,
+				`"extraData"`,
+				`"key1": "value1"`,
+				`"key2": 123`,
+				`"demoTest-struct"`,
+				`"stringProp": "errTest"`,
+				`"boolProp": false`,
+			},
+			logMethod: (*Logger).Error,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Reset the captured console output for the next test case
+			mockConsoleWriter.captured.Reset()
 			tt.objects = append(tt.objects, tt.demoStruct)
-			logger.Info(tt.eventName, tt.objects)
+			tt.logMethod(logger, tt.eventName, tt.objects)
 
 			// Read and assert the captured console output
 			capturedOutput := mockConsoleWriter.String()
-			outputMatched := false
+
 			for _, want := range tt.wantOutput {
-				if strings.Contains(capturedOutput, want) {
-					outputMatched = true
-					break
+				if !strings.Contains(capturedOutput, want) {
+					t.Errorf("Expected console output to contain '%s', got: '%s'", want, capturedOutput)
 				}
 			}
-			if !outputMatched {
-				t.Errorf("Expected console output to contain one of the following: %v\nGot: '%s'", tt.wantOutput, capturedOutput)
-			}
-
-			// Reset the captured console output for the next test case
-			mockConsoleWriter.captured.Reset()
 		})
 	}
 }

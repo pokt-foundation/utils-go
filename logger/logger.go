@@ -43,9 +43,11 @@ type Logger struct {
 // New return a new Logger instance
 // add probability if the log shouldn't be logged always
 // the probability should be 1 based. e.g: 0.1 -> 10%
+// TODO: Verify that this logger is not blocking any thread
+// If you find anything weird after the implementation reach out as soon as you can
 func New(service string, hasProbability bool, probability float64, config *zap.Config) (*Logger, error) {
 	if service == "" {
-		panic(ErrEmptyService)
+		return nil, ErrEmptyService
 	}
 
 	var zapLogger *zap.Logger

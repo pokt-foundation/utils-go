@@ -7,6 +7,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	emptyErrorMsg = "empty error"
+)
+
 type LogObject interface {
 	// LogName returns the name of the object to log
 	LogName() string
@@ -43,7 +47,7 @@ func (w *wrapper) LogProperties() map[string]any {
 // ErrObject returns an LogObject containing error information
 func ErrObject(err error) LogObject {
 	fields := map[string]any{
-		"error": "empty error",
+		"error": emptyErrorMsg,
 	}
 	if err != nil {
 		fields["error"] = err.Error()
@@ -55,6 +59,7 @@ func ErrObject(err error) LogObject {
 }
 
 // InfoObject returns an LogObject containing information
+// To log a message with a custom key-value pair use MapObject and logger.Info instead
 func InfoObject(msg string) LogObject {
 	return &wrapper{
 		Name: "infoMsg",
@@ -64,10 +69,11 @@ func InfoObject(msg string) LogObject {
 	}
 }
 
-// InfoObject returns an LogObject containing information
+// WarnObject returns an LogObject containing a warning
+// To log a warning without error, use MapObject and logger.Warning instead
 func WarnObject(err error) LogObject {
 	fields := map[string]any{
-		"error": "empty error",
+		"error": emptyErrorMsg,
 	}
 	if err != nil {
 		fields["error"] = err.Error()

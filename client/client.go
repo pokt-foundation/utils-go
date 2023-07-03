@@ -168,6 +168,8 @@ func (c *Client) GetWithURLAndParamsWithCtx(ctx context.Context, rawURL string, 
 		return nil, err
 	}
 
+	req.Header = headers
+
 	return c.DoRequestWithRetries(req)
 }
 

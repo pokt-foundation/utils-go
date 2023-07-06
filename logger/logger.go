@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ErrEmptyService = errors.New("empty service name")
+	ErrEmptyService = errors.New("empty service name error")
 
 	mu sync.Mutex
 
@@ -44,7 +44,7 @@ type Logger struct {
 // add probability if the log shouldn't be logged always
 // the probability should be 1 based. e.g: 0.1 -> 10%
 // TODO: Verify that this logger is not blocking any thread
-// If you find anything weird after the implementation reach out as soon as you can
+// Note: if you find anything weird after the implementation reach out as soon as you can
 func New(service string, hasProbability bool, probability float64, config *zap.Config) (*Logger, error) {
 	if service == "" {
 		return nil, ErrEmptyService
@@ -107,7 +107,7 @@ func (logger *Logger) Error(eventName string, objects []LogObject) {
 	logger.log(eventName, zapcore.ErrorLevel, mapObjectsToZapFields(objects))
 }
 
-// Critical logs a fatal event
+// Fatal logs a fatal event
 func (logger *Logger) Fatal(eventName string, objects []LogObject) {
 	logger.log(eventName, zapcore.FatalLevel, mapObjectsToZapFields(objects))
 }

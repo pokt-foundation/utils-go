@@ -4,8 +4,8 @@ package mock
 
 import (
 	"errors"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/jarcoal/httpmock"
@@ -18,7 +18,7 @@ var (
 
 // AddMockedResponseFromFile adds a mocked response given a file path relative to the test file
 func AddMockedResponseFromFile(method string, url string, statusCode int, filePath string) {
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func AddMultipleMockedResponses(method string, url string, statusCode int, respo
 			return nil, ErrResponseNotFound
 		}
 
-		data, err := ioutil.ReadFile(responseList[nextResponseIndex])
+		data, err := os.ReadFile(responseList[nextResponseIndex])
 		if err != nil {
 			panic(err)
 		}

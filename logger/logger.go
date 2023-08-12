@@ -1,120 +1,70 @@
 package logger
 
 import (
-	"errors"
-	"math/rand"
-	"sync"
-	"time"
+	"log"
+	"log/slog"
+	"os"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/pokt-foundation/utils-go/environment"
 )
 
-var (
-	ErrEmptyService = errors.New("empty service name error")
-
-	mu sync.Mutex
-
-	defaultCfg = zap.Config{
-		Encoding:          "console",
-		Level:             zap.NewAtomicLevelAt(zapcore.Level(zapcore.DebugLevel)),
-		OutputPaths:       []string{"stdout"},
-		ErrorOutputPaths:  []string{"stderr"},
-		DisableCaller:     true,
-		DisableStacktrace: true,
-		EncoderConfig: zapcore.EncoderConfig{
-			TimeKey:        "time",
-			LevelKey:       "level",
-			MessageKey:     "event",
-			EncodeLevel:    zapcore.LowercaseColorLevelEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
-			EncodeDuration: zapcore.StringDurationEncoder,
-		},
-	}
+const (
+	logLevel        = "LOG_LEVEL"
+	defaultLogLevel = "info" // Default log level if no environment variable is set
 )
 
+// Logger wraps the underlying slog.Logger and keeps track of the current log level.
 type Logger struct {
-	ServiceName    string
-	HasProbability bool
-	Probability    float64
-	Output         *zap.Logger
+	*slog.Logger
+	logLevel logLevelStr
 }
 
-// New return a new Logger instance
-// add probability if the log shouldn't be logged always
-// the probability should be 1 based. e.g: 0.1 -> 10%
-// TODO: Verify that this logger is not blocking any thread
-// Note: if you find anything weird after the implementation reach out as soon as you can
-func New(service string, hasProbability bool, probability float64, config *zap.Config) (*Logger, error) {
-	if service == "" {
-		return nil, ErrEmptyService
+type logLevelStr string
+
+// logLevelMap maps log levels as strings to their corresponding slog.Level values.
+var logLevelMap = map[logLevelStr]slog.Level{
+	"debug": slog.LevelDebug,
+	"info":  slog.LevelInfo,
+	"warn":  slog.LevelWarn,
+	"error": slog.LevelError,
+}
+
+// isValid checks if a log level string is a valid log level.
+func (l logLevelStr) isValid() bool {
+	switch l {
+	case "debug", "info", "warn", "error":
+		return true
+	default:
+		return false
+	}
+}
+
+// New creates a new Logger instance.
+// It reads the LOG_LEVEL environment variable to set the log level for the new logger.
+// Valid log levels are "debug", "info", "warn", and "error".
+// If an invalid or missing value is provided, it falls back to the default log level "info".
+// The LOG_LEVEL environment variable allows dynamic control over logging verbosity.
+func New() *Logger {
+	logLevelVar := logLevelStr(environment.GetString(logLevel, defaultLogLevel))
+	if !logLevelVar.isValid() {
+		log.Printf("invalid LOG_LEVEL env: %s, using info level default", logLevelVar)
+		logLevelVar = defaultLogLevel
 	}
 
-	var zapLogger *zap.Logger
-	var err error
+	programLevel := new(slog.LevelVar)
+	handlerOptions := &slog.HandlerOptions{Level: programLevel}
+	textHandler := slog.NewTextHandler(os.Stderr, handlerOptions)
 
-	if config == nil {
-		zapLogger, err = defaultCfg.Build()
-	} else {
-		zapLogger, err = config.Build()
-	}
+	slogger := slog.New(textHandler)
 
-	if err != nil {
-		return nil, err
-	}
+	// Configure logger - logs levels below the set level will be ignored (default is info)
+	logLevel := logLevelMap[logLevelVar]
+	programLevel.Set(logLevel)
 
-	zap.NewProductionConfig()
-	return &Logger{
-		ServiceName:    service,
-		Probability:    probability,
-		HasProbability: hasProbability,
-		Output:         zapLogger,
-	}, nil
+	return &Logger{Logger: slogger, logLevel: logLevelVar}
 }
 
-// log generate the log with the given parameters
-func (logger *Logger) log(eventName string, level zapcore.Level, properties []zapcore.Field) {
-	floatNumber := rand.Float64()
-	if logger.HasProbability && floatNumber <= logger.Probability {
-		return
-	}
-
-	now := time.Now()
-
-	LogProperties := []zapcore.Field{
-		zap.String("service", logger.ServiceName),
-		zap.String("time", now.Format(time.RFC3339Nano)),
-	}
-
-	LogProperties = append(LogProperties, properties...)
-
-	logger.writeToConsole(level, eventName, LogProperties)
-	// Future idea: maybe send the data directly to our log handler
-}
-
-// Info logs an info event
-func (logger *Logger) Info(eventName string, objects []LogObject) {
-	logger.log(eventName, zapcore.InfoLevel, mapObjectsToZapFields(objects))
-}
-
-// Warning logs an warn event
-func (logger *Logger) Warning(eventName string, objects []LogObject) {
-	logger.log(eventName, zapcore.WarnLevel, mapObjectsToZapFields(objects))
-}
-
-// Error logs an error event
-func (logger *Logger) Error(eventName string, objects []LogObject) {
-	logger.log(eventName, zapcore.ErrorLevel, mapObjectsToZapFields(objects))
-}
-
-// Fatal logs a fatal event
-func (logger *Logger) Fatal(eventName string, objects []LogObject) {
-	logger.log(eventName, zapcore.FatalLevel, mapObjectsToZapFields(objects))
-}
-
-func (logger *Logger) writeToConsole(level zapcore.Level, eventName string, properties []zapcore.Field) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	logger.Output.Log(level, eventName, properties...)
+// LogLevel returns the current log level as a string.
+func (l *Logger) LogLevel() string {
+	return string(l.logLevel)
 }

@@ -119,3 +119,65 @@ func Test_Logger(t *testing.T) {
 		})
 	}
 }
+
+func Test_NewTestLogger(t *testing.T) {
+	c := require.New(t)
+
+	tests := []struct {
+		name         string
+		logMessages  []string
+		expectedLogs []string
+	}{
+		{
+			name: "Should log multiple levels",
+			logMessages: []string{
+				"Debug message",
+				"Info message",
+				"Warn message",
+				"Error message",
+			},
+			expectedLogs: []string{
+				"Debug message",
+				"Info message",
+				"Warn message",
+				"Error message",
+			},
+		},
+		{
+			name: "Should log a single level",
+			logMessages: []string{
+				"Debug message",
+			},
+			expectedLogs: []string{
+				"Debug message",
+			},
+		},
+		{
+			name:         "Should handle no logs",
+			logMessages:  []string{},
+			expectedLogs: []string{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			logger, readOutput, cleanup := NewTestLogger()
+			defer cleanup()
+
+			for _, msg := range test.logMessages {
+				logger.Info(msg)
+			}
+
+			// Small delay to give the goroutine time to capture the logs
+			time.Sleep(100 * time.Millisecond)
+
+			logLines := readOutput()
+
+			c.Equal(len(test.expectedLogs), len(logLines), "Number of logged lines should match expected")
+
+			for i, logLine := range logLines {
+				c.Equal(test.expectedLogs[i], logLine, "Logged message should match expected")
+			}
+		})
+	}
+}

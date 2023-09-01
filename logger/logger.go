@@ -136,6 +136,10 @@ func NewTestLogger() (*Logger, func() []string, func()) {
 
 	// Determine the log handler in use
 	logHandlerVar := logHandlerStr(environment.GetString(logHandler, defaultLogHandler))
+	if !logHandlerVar.isValid() {
+		log.Printf("invalid LOG_HANDLER env: %s, using json default", logHandlerVar)
+		logHandlerVar = defaultLogHandler
+	}
 
 	go func() {
 		if logHandlerVar == logHandlerJSON {

@@ -17,14 +17,14 @@ func Test_Logger_JSON(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		envLogLevel   string
+		envLogLevel   logLevelStr
 		expectedOut   []map[string]interface{}
 		defaultToJSON bool
 	}{
 		{
 			name:          "Should log at debug level AS json if env var is not set (use default)",
 			defaultToJSON: true,
-			envLogLevel:   "debug",
+			envLogLevel:   logLevelDebug,
 			expectedOut: []map[string]interface{}{
 				{"level": "DEBUG", "msg": "Debug message"},
 				{"level": "INFO", "msg": "Info message"},
@@ -34,7 +34,7 @@ func Test_Logger_JSON(t *testing.T) {
 		},
 		{
 			name:        "Should log at debug level",
-			envLogLevel: "debug",
+			envLogLevel: logLevelDebug,
 			expectedOut: []map[string]interface{}{
 				{"level": "DEBUG", "msg": "Debug message"},
 				{"level": "INFO", "msg": "Info message"},
@@ -44,7 +44,7 @@ func Test_Logger_JSON(t *testing.T) {
 		},
 		{
 			name:        "Should log at info level",
-			envLogLevel: "info",
+			envLogLevel: logLevelInfo,
 			expectedOut: []map[string]interface{}{
 				{"level": "INFO", "msg": "Info message"},
 				{"level": "WARN", "msg": "Warn message"},
@@ -53,7 +53,7 @@ func Test_Logger_JSON(t *testing.T) {
 		},
 		{
 			name:        "Should log at warn level",
-			envLogLevel: "warn",
+			envLogLevel: logLevelWarn,
 			expectedOut: []map[string]interface{}{
 				{"level": "WARN", "msg": "Warn message"},
 				{"level": "ERROR", "msg": "Error message"},
@@ -61,7 +61,7 @@ func Test_Logger_JSON(t *testing.T) {
 		},
 		{
 			name:        "Should log at error level",
-			envLogLevel: "error",
+			envLogLevel: logLevelError,
 			expectedOut: []map[string]interface{}{
 				{"level": "ERROR", "msg": "Error message"},
 			},
@@ -90,12 +90,12 @@ func Test_Logger_JSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if !test.defaultToJSON {
 				// Set log handler to json for the test
-				err := os.Setenv(logHandler, "json")
+				err := os.Setenv(logHandler, logHandlerJSON)
 				c.NoError(err)
 			}
 
 			// Set environment variable for the test
-			err := os.Setenv(logLevel, test.envLogLevel)
+			err := os.Setenv(logLevel, string(test.envLogLevel))
 			c.NoError(err)
 
 			// Create a pipe to capture standard error output
@@ -158,27 +158,27 @@ func Test_Logger_Text(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		envLogLevel string
+		envLogLevel logLevelStr
 		expectedOut string
 	}{
 		{
 			name:        "Should log at debug level",
-			envLogLevel: "debug",
+			envLogLevel: logLevelDebug,
 			expectedOut: "time=<CURRENT TIMESTAMP> level=DEBUG msg=\"Debug message\"\ntime=<CURRENT TIMESTAMP> level=INFO msg=\"Info message\"\ntime=<CURRENT TIMESTAMP> level=WARN msg=\"Warn message\"\ntime=<CURRENT TIMESTAMP> level=ERROR msg=\"Error message\"",
 		},
 		{
 			name:        "Should log at info level",
-			envLogLevel: "info",
+			envLogLevel: logLevelInfo,
 			expectedOut: "time=<CURRENT TIMESTAMP> level=INFO msg=\"Info message\"\ntime=<CURRENT TIMESTAMP> level=WARN msg=\"Warn message\"\ntime=<CURRENT TIMESTAMP> level=ERROR msg=\"Error message\"",
 		},
 		{
 			name:        "Should log at warn level",
-			envLogLevel: "warn",
+			envLogLevel: logLevelWarn,
 			expectedOut: "time=<CURRENT TIMESTAMP> level=WARN msg=\"Warn message\"\ntime=<CURRENT TIMESTAMP> level=ERROR msg=\"Error message\"",
 		},
 		{
 			name:        "Should log at error level",
-			envLogLevel: "error",
+			envLogLevel: logLevelError,
 			expectedOut: "time=<CURRENT TIMESTAMP> level=ERROR msg=\"Error message\"",
 		},
 		{
@@ -196,10 +196,10 @@ func Test_Logger_Text(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Set log handler to text for the test
-			err := os.Setenv(logHandler, "text")
+			err := os.Setenv(logHandler, logHandlerText)
 			c.NoError(err)
 			// Set environment variable for the test
-			err = os.Setenv(logLevel, test.envLogLevel)
+			err = os.Setenv(logLevel, string(test.envLogLevel))
 			c.NoError(err)
 
 			// Create a pipe to capture standard error output
@@ -250,7 +250,7 @@ func Test_Logger_Text(t *testing.T) {
 				}
 				c.NoError(err, "Timestamp is not in the expected format")
 
-				c.True(now.Sub(parsedTime) < 1000*time.Millisecond, "Timestamp is not within 100ms of current time")
+				c.True(now.Sub(parsedTime) < 1000*time.Millisecond, "Timestamp is not within 1000ms of current time")
 
 				// Convert the expected line to use "Z" if the timezone is UTC
 				expectedLine := expectedLines[i]

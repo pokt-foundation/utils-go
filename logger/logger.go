@@ -20,14 +20,14 @@ const (
 	defaultLogHandler = "json" // Default log handler if no environment variable is set
 
 	// Log levels as strings
-	logLevelDebug = "debug"
-	logLevelInfo  = "info"
-	logLevelWarn  = "warn"
-	logLevelError = "error"
+	logLevelDebug logLevelStr = "debug"
+	logLevelInfo  logLevelStr = "info"
+	logLevelWarn  logLevelStr = "warn"
+	logLevelError logLevelStr = "error"
 
 	// Log handlers as strings
-	logHandlerJSON = "json"
-	logHandlerText = "text"
+	logHandlerJSON logHandlerStr = "json"
+	logHandlerText logHandlerStr = "text"
 )
 
 // logLevelMap maps log levels as strings to their corresponding slog.Level values.
@@ -42,7 +42,8 @@ var logLevelMap = map[logLevelStr]slog.Level{
 type (
 	Logger struct {
 		*slog.Logger
-		logLevel logLevelStr
+		logLevel   logLevelStr
+		logHandler logHandlerStr
 	}
 
 	logLevelStr   string
@@ -105,12 +106,17 @@ func New() *Logger {
 	logLevel := logLevelMap[logLevelVar]
 	programLevel.Set(logLevel)
 
-	return &Logger{Logger: slogger, logLevel: logLevelVar}
+	return &Logger{Logger: slogger, logLevel: logLevelVar, logHandler: logHandlerVar}
 }
 
 // LogLevel returns the current log level as a string.
 func (l *Logger) LogLevel() string {
 	return string(l.logLevel)
+}
+
+// LogHandler returns the current log handler as a string.
+func (l *Logger) LogHandler() string {
+	return string(l.logHandler)
 }
 
 // Fatal logs an Error level log and exits the program using os.Exit(1).

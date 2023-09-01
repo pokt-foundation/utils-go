@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	logLevel        = "LOG_LEVEL"
-	defaultLogLevel = "info" // Default log level if no environment variable is set
+	logLevel          = "LOG_LEVEL"
+	defaultLogLevel   = "info" // Default log level if no environment variable is set
+	logHandler        = "LOG_HANDLER"
+	defaultLogHandler = "json" // Default log handler if no environment variable is set
 )
 
 // logLevelMap maps log levels as strings to their corresponding slog.Level values.
@@ -31,7 +33,8 @@ type (
 		logLevel logLevelStr
 	}
 
-	logLevelStr string
+	logLevelStr   string
+	logHandlerStr string
 )
 
 // isValid checks if a log level string is a valid log level.
@@ -44,23 +47,47 @@ func (l logLevelStr) isValid() bool {
 	}
 }
 
+// isValid checks if a log handler is valid.
+func (l logHandlerStr) isValid() bool {
+	switch l {
+	case "json", "text":
+		return true
+	default:
+		return false
+	}
+}
+
 // New creates a new Logger instance.
 // It reads the LOG_LEVEL environment variable to set the log level for the new logger.
 // Valid log levels are "debug", "info", "warn", and "error".
 // If an invalid or missing value is provided, it falls back to the default log level "info".
 // The LOG_LEVEL environment variable allows dynamic control over logging verbosity.
+// The LOG_HANDLER environment variable allows setting output to JSON or text (default is JSON).
 func New() *Logger {
 	logLevelVar := logLevelStr(environment.GetString(logLevel, defaultLogLevel))
 	if !logLevelVar.isValid() {
 		log.Printf("invalid LOG_LEVEL env: %s, using info level default", logLevelVar)
 		logLevelVar = defaultLogLevel
 	}
+	logHandlerVar := logHandlerStr(environment.GetString(logHandler, defaultLogHandler))
+	if !logHandlerVar.isValid() {
+		log.Printf("invalid LOG_HANDLER env: %s, using json default", logHandlerVar)
+		logHandlerVar = defaultLogHandler
+	}
 
 	programLevel := new(slog.LevelVar)
 	handlerOptions := &slog.HandlerOptions{Level: programLevel}
-	textHandler := slog.NewTextHandler(os.Stderr, handlerOptions)
 
-	slogger := slog.New(textHandler)
+	// Allow configuration of log handler. default is to use JSON.
+	var handler slog.Handler
+	switch logHandlerVar {
+	case "text":
+		handler = slog.NewTextHandler(os.Stderr, handlerOptions)
+	default:
+		handler = slog.NewJSONHandler(os.Stderr, handlerOptions)
+	}
+
+	slogger := slog.New(handler)
 
 	// Configure logger - logs levels below the set level will be ignored (default is info)
 	logLevel := logLevelMap[logLevelVar]

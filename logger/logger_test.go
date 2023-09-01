@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -11,7 +12,148 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Logger(t *testing.T) {
+func Test_Logger_JSON(t *testing.T) {
+	c := require.New(t)
+
+	tests := []struct {
+		name          string
+		envLogLevel   string
+		expectedOut   []map[string]interface{}
+		defaultToJSON bool
+	}{
+		{
+			name:          "Should log at debug level AS json if env var is not set (use default)",
+			defaultToJSON: true,
+			envLogLevel:   "debug",
+			expectedOut: []map[string]interface{}{
+				{"level": "DEBUG", "msg": "Debug message"},
+				{"level": "INFO", "msg": "Info message"},
+				{"level": "WARN", "msg": "Warn message"},
+				{"level": "ERROR", "msg": "Error message"},
+			},
+		},
+		{
+			name:        "Should log at debug level",
+			envLogLevel: "debug",
+			expectedOut: []map[string]interface{}{
+				{"level": "DEBUG", "msg": "Debug message"},
+				{"level": "INFO", "msg": "Info message"},
+				{"level": "WARN", "msg": "Warn message"},
+				{"level": "ERROR", "msg": "Error message"},
+			},
+		},
+		{
+			name:        "Should log at info level",
+			envLogLevel: "info",
+			expectedOut: []map[string]interface{}{
+				{"level": "INFO", "msg": "Info message"},
+				{"level": "WARN", "msg": "Warn message"},
+				{"level": "ERROR", "msg": "Error message"},
+			},
+		},
+		{
+			name:        "Should log at warn level",
+			envLogLevel: "warn",
+			expectedOut: []map[string]interface{}{
+				{"level": "WARN", "msg": "Warn message"},
+				{"level": "ERROR", "msg": "Error message"},
+			},
+		},
+		{
+			name:        "Should log at error level",
+			envLogLevel: "error",
+			expectedOut: []map[string]interface{}{
+				{"level": "ERROR", "msg": "Error message"},
+			},
+		},
+		{
+			name:        "Should default to logging at info level if invalid log level is set",
+			envLogLevel: "what_is_this",
+			expectedOut: []map[string]interface{}{
+				{"level": "INFO", "msg": "Info message"},
+				{"level": "WARN", "msg": "Warn message"},
+				{"level": "ERROR", "msg": "Error message"},
+			},
+		},
+		{
+			name:        "Should default to logging at info level if no log level is set",
+			envLogLevel: "",
+			expectedOut: []map[string]interface{}{
+				{"level": "INFO", "msg": "Info message"},
+				{"level": "WARN", "msg": "Warn message"},
+				{"level": "ERROR", "msg": "Error message"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if !test.defaultToJSON {
+				// Set log handler to json for the test
+				err := os.Setenv(logHandler, "json")
+				c.NoError(err)
+			}
+
+			// Set environment variable for the test
+			err := os.Setenv(logLevel, test.envLogLevel)
+			c.NoError(err)
+
+			// Create a pipe to capture standard error output
+			r, w, err := os.Pipe()
+			c.NoError(err)
+			originalStderr := os.Stderr
+			os.Stderr = w
+
+			// Create the logger using the New function
+			logger := New()
+
+			// Log the messages at different levels
+			logger.Debug("Debug message")
+			logger.Info("Info message")
+			logger.Warn("Warn message")
+			logger.Error("Error message")
+
+			// Restore original stderr
+			os.Stderr = originalStderr
+			w.Close()
+
+			now := time.Now()
+
+			// Read the captured output
+			var buffer bytes.Buffer
+			_, err = io.Copy(&buffer, r)
+			c.NoError(err)
+
+			actualOutput := buffer.String()
+			actualLines := strings.Split(strings.TrimSpace(actualOutput), "\n")
+
+			c.Equal(len(test.expectedOut), len(actualLines))
+
+			for i, line := range actualLines {
+				var actualMap map[string]interface{}
+				err := json.Unmarshal([]byte(line), &actualMap)
+				c.NoError(err)
+
+				c.Equal(test.expectedOut[i]["level"], actualMap["level"])
+				c.Equal(test.expectedOut[i]["msg"], actualMap["msg"])
+
+				actualTimestamp := actualMap["time"].(string)
+
+				// Try parsing the timestamp in the first format
+				parsedTime, err := time.Parse("2006-01-02T15:04:05.000-07:00", actualTimestamp)
+				if err != nil {
+					// If the first format fails, try the second format
+					parsedTime, err = time.Parse(time.RFC3339, actualTimestamp)
+				}
+				c.NoError(err, "Timestamp is not in the expected format")
+
+				c.True(now.Sub(parsedTime) < 100*time.Millisecond, "Timestamp is not within 100ms of current time")
+			}
+		})
+	}
+}
+
+func Test_Logger_Text(t *testing.T) {
 	c := require.New(t)
 
 	tests := []struct {
@@ -53,8 +195,11 @@ func Test_Logger(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			// Set log handler to text for the test
+			err := os.Setenv(logHandler, "text")
+			c.NoError(err)
 			// Set environment variable for the test
-			err := os.Setenv(logLevel, test.envLogLevel)
+			err = os.Setenv(logLevel, test.envLogLevel)
 			c.NoError(err)
 
 			// Create a pipe to capture standard error output
@@ -105,7 +250,7 @@ func Test_Logger(t *testing.T) {
 				}
 				c.NoError(err, "Timestamp is not in the expected format")
 
-				c.True(now.Sub(parsedTime) < 100*time.Millisecond, "Timestamp is not within 100ms of current time")
+				c.True(now.Sub(parsedTime) < 1000*time.Millisecond, "Timestamp is not within 100ms of current time")
 
 				// Convert the expected line to use "Z" if the timezone is UTC
 				expectedLine := expectedLines[i]

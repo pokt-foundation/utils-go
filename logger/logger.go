@@ -2,6 +2,8 @@ package logger
 
 import (
 	"bufio"
+	"encoding/json"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -16,14 +18,24 @@ const (
 	defaultLogLevel   = "info" // Default log level if no environment variable is set
 	logHandler        = "LOG_HANDLER"
 	defaultLogHandler = "json" // Default log handler if no environment variable is set
+
+	// Log levels as strings
+	logLevelDebug = "debug"
+	logLevelInfo  = "info"
+	logLevelWarn  = "warn"
+	logLevelError = "error"
+
+	// Log handlers as strings
+	logHandlerJSON = "json"
+	logHandlerText = "text"
 )
 
 // logLevelMap maps log levels as strings to their corresponding slog.Level values.
 var logLevelMap = map[logLevelStr]slog.Level{
-	"debug": slog.LevelDebug,
-	"info":  slog.LevelInfo,
-	"warn":  slog.LevelWarn,
-	"error": slog.LevelError,
+	logLevelDebug: slog.LevelDebug,
+	logLevelInfo:  slog.LevelInfo,
+	logLevelWarn:  slog.LevelWarn,
+	logLevelError: slog.LevelError,
 }
 
 // Logger wraps the underlying slog.Logger and keeps track of the current log level.
@@ -40,7 +52,7 @@ type (
 // isValid checks if a log level string is a valid log level.
 func (l logLevelStr) isValid() bool {
 	switch l {
-	case "debug", "info", "warn", "error":
+	case logLevelDebug, logLevelInfo, logLevelWarn, logLevelError:
 		return true
 	default:
 		return false
@@ -50,7 +62,7 @@ func (l logLevelStr) isValid() bool {
 // isValid checks if a log handler is valid.
 func (l logHandlerStr) isValid() bool {
 	switch l {
-	case "json", "text":
+	case logHandlerJSON, logHandlerText:
 		return true
 	default:
 		return false
@@ -81,9 +93,9 @@ func New() *Logger {
 	// Allow configuration of log handler. default is to use JSON.
 	var handler slog.Handler
 	switch logHandlerVar {
-	case "text":
+	case logHandlerText: // If LOG_HANDLER var set to "text", logger will use text output
 		handler = slog.NewTextHandler(os.Stderr, handlerOptions)
-	default:
+	default: // If no LOG_HANDLER var set, logger will use JSON output
 		handler = slog.NewJSONHandler(os.Stderr, handlerOptions)
 	}
 
@@ -113,8 +125,8 @@ func (l *Logger) Fatal(msg string, args ...any) {
 func NewTestLogger() (*Logger, func() []string, func()) {
 	// Create a pipe to capture standard error output
 	r, w, _ := os.Pipe()
-	originalStderr := os.Stderr // Keep track of original stderr
-	os.Stderr = w               // Redirect stderr to the write end of the pipe
+	originalStderr := os.Stderr
+	os.Stderr = w
 
 	var logs []string
 	var logsMu sync.Mutex
@@ -122,24 +134,41 @@ func NewTestLogger() (*Logger, func() []string, func()) {
 	// Create the logger using the New function
 	logger := New()
 
-	// Compile the regular expression to capture msg value
-	re := regexp.MustCompile(`msg="([^"]+)"`)
+	// Determine the log handler in use
+	logHandlerVar := logHandlerStr(environment.GetString(logHandler, defaultLogHandler))
 
-	// Run a goroutine to capture logs into a slice
 	go func() {
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			text := scanner.Text()
-			matches := re.FindStringSubmatch(text)
-			if len(matches) > 1 {
-				logsMu.Lock()
-				logs = append(logs, matches[1])
-				logsMu.Unlock()
+		if logHandlerVar == logHandlerJSON {
+			decoder := json.NewDecoder(r)
+			for {
+				var logEntry map[string]interface{}
+				if err := decoder.Decode(&logEntry); err == io.EOF {
+					break
+				} else if err != nil {
+					continue
+				}
+
+				if msg, ok := logEntry["msg"].(string); ok {
+					logsMu.Lock()
+					logs = append(logs, msg)
+					logsMu.Unlock()
+				}
+			}
+		} else {
+			scanner := bufio.NewScanner(r)
+			re := regexp.MustCompile(`msg="([^"]+)"`)
+			for scanner.Scan() {
+				text := scanner.Text()
+				matches := re.FindStringSubmatch(text)
+				if len(matches) > 1 {
+					logsMu.Lock()
+					logs = append(logs, matches[1])
+					logsMu.Unlock()
+				}
 			}
 		}
 	}()
 
-	// Function to read captured output as a slice
 	readOutput := func() []string {
 		logsMu.Lock()
 		defer logsMu.Unlock()
@@ -148,7 +177,6 @@ func NewTestLogger() (*Logger, func() []string, func()) {
 		return clone
 	}
 
-	// Function to clean up and restore original stderr
 	cleanup := func() {
 		os.Stderr = originalStderr
 		w.Close()

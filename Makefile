@@ -1,5 +1,5 @@
 test:
-	go test ./...
+	go test ./... -count=1
 
 init-pre-commit:
 	wget https://github.com/pre-commit/pre-commit/releases/download/v2.20.0/pre-commit-2.20.0.pyz;

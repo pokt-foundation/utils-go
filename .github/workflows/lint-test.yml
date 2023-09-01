@@ -43,4 +43,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run Unit tests
-        run: go test ./...
+        run: make test

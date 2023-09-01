@@ -2,6 +2,8 @@ package logger
 
 import (
 	"bufio"
+	"encoding/json"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -123,8 +125,8 @@ func (l *Logger) Fatal(msg string, args ...any) {
 func NewTestLogger() (*Logger, func() []string, func()) {
 	// Create a pipe to capture standard error output
 	r, w, _ := os.Pipe()
-	originalStderr := os.Stderr // Keep track of original stderr
-	os.Stderr = w               // Redirect stderr to the write end of the pipe
+	originalStderr := os.Stderr
+	os.Stderr = w
 
 	var logs []string
 	var logsMu sync.Mutex
@@ -132,24 +134,41 @@ func NewTestLogger() (*Logger, func() []string, func()) {
 	// Create the logger using the New function
 	logger := New()
 
-	// Compile the regular expression to capture msg value
-	re := regexp.MustCompile(`msg="([^"]+)"`)
+	// Determine the log handler in use
+	logHandlerVar := logHandlerStr(environment.GetString(logHandler, defaultLogHandler))
 
-	// Run a goroutine to capture logs into a slice
 	go func() {
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			text := scanner.Text()
-			matches := re.FindStringSubmatch(text)
-			if len(matches) > 1 {
-				logsMu.Lock()
-				logs = append(logs, matches[1])
-				logsMu.Unlock()
+		if logHandlerVar == logHandlerJSON {
+			decoder := json.NewDecoder(r)
+			for {
+				var logEntry map[string]interface{}
+				if err := decoder.Decode(&logEntry); err == io.EOF {
+					break
+				} else if err != nil {
+					continue
+				}
+
+				if msg, ok := logEntry["msg"].(string); ok {
+					logsMu.Lock()
+					logs = append(logs, msg)
+					logsMu.Unlock()
+				}
+			}
+		} else {
+			scanner := bufio.NewScanner(r)
+			re := regexp.MustCompile(`msg="([^"]+)"`)
+			for scanner.Scan() {
+				text := scanner.Text()
+				matches := re.FindStringSubmatch(text)
+				if len(matches) > 1 {
+					logsMu.Lock()
+					logs = append(logs, matches[1])
+					logsMu.Unlock()
+				}
 			}
 		}
 	}()
 
-	// Function to read captured output as a slice
 	readOutput := func() []string {
 		logsMu.Lock()
 		defer logsMu.Unlock()
@@ -158,7 +177,6 @@ func NewTestLogger() (*Logger, func() []string, func()) {
 		return clone
 	}
 
-	// Function to clean up and restore original stderr
 	cleanup := func() {
 		os.Stderr = originalStderr
 		w.Close()

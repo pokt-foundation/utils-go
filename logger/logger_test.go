@@ -270,11 +270,13 @@ func Test_NewTestLogger(t *testing.T) {
 
 	tests := []struct {
 		name         string
+		logHandler   logLevelStr
 		logMessages  []string
 		expectedLogs []string
 	}{
 		{
-			name: "Should log multiple levels",
+			name:       "Should log multiple levels in JSON",
+			logHandler: logHandlerJSON,
 			logMessages: []string{
 				"Debug message",
 				"Info message",
@@ -289,7 +291,8 @@ func Test_NewTestLogger(t *testing.T) {
 			},
 		},
 		{
-			name: "Should log a single level",
+			name:       "Should log single level in JSON",
+			logHandler: logHandlerJSON,
 			logMessages: []string{
 				"Debug message",
 			},
@@ -298,14 +301,38 @@ func Test_NewTestLogger(t *testing.T) {
 			},
 		},
 		{
-			name:         "Should handle no logs",
-			logMessages:  []string{},
-			expectedLogs: []string{},
+			name:       "Should log multiple levels in Text",
+			logHandler: logHandlerText,
+			logMessages: []string{
+				"Debug message",
+				"Info message",
+				"Warn message",
+				"Error message",
+			},
+			expectedLogs: []string{
+				"Debug message",
+				"Info message",
+				"Warn message",
+				"Error message",
+			},
+		},
+		{
+			name:       "Should log single level in Text",
+			logHandler: logHandlerText,
+			logMessages: []string{
+				"Debug message",
+			},
+			expectedLogs: []string{
+				"Debug message",
+			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			// Set the environment variable for log handler
+			os.Setenv("LOG_HANDLER", string(test.logHandler))
+
 			logger, readOutput, cleanup := NewTestLogger()
 			defer cleanup()
 
@@ -323,6 +350,9 @@ func Test_NewTestLogger(t *testing.T) {
 			for i, logLine := range logLines {
 				c.Equal(test.expectedLogs[i], logLine, "Logged message should match expected")
 			}
+
+			// Clean up the environment variable
+			os.Unsetenv("LOG_HANDLER")
 		})
 	}
 }

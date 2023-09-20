@@ -1,6 +1,9 @@
-# Utils Go
-
-The Utils Go package provides common used utility funcs, an HTTP client and more to other Go backend packages.
+<div align="center">
+    <img src=".github/grove_logo.png" alt="Grove logo" width="600"/>
+    <h1>Utils Go</h1>
+    <big>The Utils Go package provides common used utility funcs, an HTTP client and more to other Go backend packages.</big>
+</div>
+<br/>
 
 ## Pre-Commit Installation
 

@@ -90,7 +90,7 @@ func Test_Logger_JSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if !test.defaultToJSON {
 				// Set log handler to json for the test
-				err := os.Setenv(logHandler, logHandlerJSON)
+				err := os.Setenv(logHandler, string(logHandlerJSON))
 				c.NoError(err)
 			}
 
@@ -196,7 +196,7 @@ func Test_Logger_Text(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Set log handler to text for the test
-			err := os.Setenv(logHandler, logHandlerText)
+			err := os.Setenv(logHandler, string(logHandlerText))
 			c.NoError(err)
 			// Set environment variable for the test
 			err = os.Setenv(logLevel, string(test.envLogLevel))
@@ -270,7 +270,7 @@ func Test_NewTestLogger(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		logHandler   logLevelStr
+		logHandler   logHandlerStr
 		logMessages  []string
 		expectedLogs []string
 	}{

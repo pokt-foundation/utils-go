@@ -1,203 +1,351 @@
-// Package client is a wrapper for the default go client with default and configurable options
-// It also has some utility functions to do actual requests
+// package client provides utility methods for making all HTTP requests
 package client
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 )
 
 const (
-	defaultHTTPClientTimeout = 5 * time.Second
-	defaultHTTPClientRetries = 0
-	backoffTime              = 2 * time.Second
+	defaultTimeout = 5 * time.Second
+	defaultRetries = 0
 )
 
-// Client is a wrapper for the default client
-type Client struct {
-	Client  *http.Client
-	retries int
-}
+var ErrResponseNotOK error = errors.New("response not OK")
 
-// NewDefaultClient returns httpclient instance with default config
-func NewDefaultClient() *Client {
-	return &Client{
-		Client: &http.Client{
-			Timeout: defaultHTTPClientTimeout,
-		},
-		retries: defaultHTTPClientRetries,
-	}
-}
-
-// NewCustomClient returns httpclient instance with given custom config
-func NewCustomClient(retries int, timeout time.Duration) *Client {
-	return &Client{
-		Client: &http.Client{
-			Timeout: timeout,
-		},
-		retries: retries,
-	}
-}
-
-// CustomClientOpts
-type CustomClientOpts struct {
-	Retries   int
-	Timeout   time.Duration
-	Transport http.RoundTripper
-}
-
-// NewCustomClientWithOptions returns httpclient instance with given custom config in the opts struct
-func NewCustomClientWithOptions(opts CustomClientOpts) *Client {
-	return &Client{
-		Client: &http.Client{
-			Timeout:   opts.Timeout,
-			Transport: opts.Transport,
-		},
-		retries: opts.Retries,
-	}
-}
-
-func getJSONBodyFromParams(params any) (io.Reader, error) {
-	if params == nil {
-		return nil, nil
+type (
+	// GetReqConfig is a struct that holds the configuration for a GET request.
+	// If a Client is not provided, a default client with a timeout of 5 seconds will be used.
+	GetReqConfig struct {
+		URL     string
+		Headers map[string]string
+		Client  *http.Client
 	}
 
-	rawBody, err := json.Marshal(params)
+	// PostReqConfig is a struct that holds the configuration for a POST request.
+	// If a Client is not provided, a default client with a timeout of 5 seconds will be used.
+	PostReqConfig struct {
+		URL     string
+		Body    any
+		Headers map[string]string
+		Client  *http.Client
+	}
+
+	// PutReqConfig is a struct that holds the configuration for a PUT request.
+	// If a Client is not provided, a default client with a timeout of 5 seconds will be used.
+	PutReqConfig struct {
+		URL     string
+		Body    any
+		Headers map[string]string
+		Client  *http.Client
+	}
+
+	// PatchReqConfig is a struct that holds the configuration for a PATCH request.
+	// If a Client is not provided, a default client with a timeout of 5 seconds will be used.
+	PatchReqConfig struct {
+		URL     string
+		Body    any
+		Headers map[string]string
+		Client  *http.Client
+	}
+	// DeleteReqConfig is a struct that holds the configuration for a DELETE request.
+	// If a Client is not provided, a default client with a timeout of 5 seconds will be used.
+	DeleteReqConfig struct {
+		URL     string
+		Headers map[string]string
+		Client  *http.Client
+	}
+
+	// retryTransport is a custom transport for handling retries
+	retryTransport struct {
+		underlying http.RoundTripper
+		retries    int
+	}
+)
+
+// NewDefaultClient returns Client struct with default timeout of 5 seconds
+func NewDefaultClient() *http.Client {
+	return &http.Client{Timeout: defaultTimeout}
+}
+
+// NewCustomClient returns Client struct with custom timeout and retries
+func NewCustomClient(timeout time.Duration, retries int) *http.Client {
+	client := &http.Client{Timeout: timeout}
+
+	if retries > 0 {
+		client.Transport = &retryTransport{
+			underlying: client.Transport,
+			retries:    retries,
+		}
+	}
+
+	return client
+}
+
+// Get makes a GET request to the given URL with the given headers and client
+func Get[R any](c GetReqConfig) (R, error) {
+	if c.Client == nil {
+		c.Client = NewDefaultClient()
+	}
+
+	var data R
+
+	req, err := http.NewRequest(http.MethodGet, c.URL, nil)
 	if err != nil {
-		return nil, err
+		return data, err
 	}
 
-	return bytes.NewBufferString(string(rawBody)), nil
-}
+	for header, headerValue := range c.Headers {
+		req.Header.Set(header, headerValue)
+	}
 
-// PostWithURLJSONParams does post request with JSON param
-func (c *Client) PostWithURLJSONParams(url string, params any, headers http.Header) (*http.Response, error) {
-	return c.PostWithURLJSONParamsWithCtx(context.Background(), url, params, headers)
-}
-
-// PostWithURLJSONParamsWithCtx does post request with JSON param
-func (c *Client) PostWithURLJSONParamsWithCtx(ctx context.Context, url string, params any, headers http.Header) (*http.Response, error) {
-	body, err := getJSONBodyFromParams(params)
+	resp, err := c.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return data, err
 	}
+	defer resp.Body.Close()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err != nil {
-		return nil, err
+		return data, err
 	}
 
-	headers.Set("Content-Type", "application/json")
-
-	req.Header = headers
-
-	return c.DoRequestWithRetries(req)
+	return data, err
 }
 
-// PostWithURLEncodedParams does post request with URL encoded params
-func (c *Client) PostWithURLEncodedParams(url string, params url.Values, headers http.Header) (*http.Response, error) {
-	return c.PostWithURLEncodedParamsWithCtx(context.Background(), url, params, headers)
-}
-
-// PostWithURLEncodedParamsWithCtx does post request with URL encoded params
-func (c *Client) PostWithURLEncodedParamsWithCtx(ctx context.Context, url string, params url.Values, headers http.Header) (*http.Response, error) {
-	var body io.Reader
-
-	if len(params) != 0 {
-		body = strings.NewReader(params.Encode())
+// Post makes a POST request to the given URL with the given body, headers and client
+func Post[R any](c PostReqConfig) (R, error) {
+	if c.Client == nil {
+		c.Client = NewDefaultClient()
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	var data R
+
+	postData, err := json.Marshal(c.Body)
 	if err != nil {
-		return nil, err
+		return data, err
 	}
 
-	headers.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	req.Header = headers
-
-	return c.DoRequestWithRetries(req)
-}
-
-// PutWithURLJSONParams does post request with JSON param
-func (c *Client) PutWithURLJSONParams(url string, params any, headers http.Header) (*http.Response, error) {
-	return c.PutWithURLJSONParamsWithCtx(context.Background(), url, params, headers)
-}
-
-// PutWithURLJSONParamsWithCtx does post request with JSON param
-func (c *Client) PutWithURLJSONParamsWithCtx(ctx context.Context, url string, params any, headers http.Header) (*http.Response, error) {
-	body, err := getJSONBodyFromParams(params)
+	req, err := http.NewRequest(http.MethodPost, c.URL, bytes.NewBuffer(postData))
 	if err != nil {
-		return nil, err
+		return data, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, body)
+	req.Header.Set("Content-Type", "application/json")
+	for header, headerValue := range c.Headers {
+		req.Header.Set(header, headerValue)
+	}
+
+	resp, err := c.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return data, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return data, parseErrorResponse(resp)
 	}
 
-	headers.Set("Content-Type", "application/json")
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return data, err
+	}
 
-	req.Header = headers
-
-	return c.DoRequestWithRetries(req)
+	return data, err
 }
 
-// GetWithURLAndParams does get request with url values as params
-func (c *Client) GetWithURLAndParams(rawURL string, params url.Values, headers http.Header) (*http.Response, error) {
-	return c.GetWithURLAndParamsWithCtx(context.Background(), rawURL, params, headers)
-}
-
-// GetWithURLAndParamsWithCtx does get request with url values as params
-func (c *Client) GetWithURLAndParamsWithCtx(ctx context.Context, rawURL string, params url.Values, headers http.Header) (*http.Response, error) {
-	urlStruct, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, err
+// Put makes a PUT request to the given URL with the given body, headers and client
+func Put[R any](c PutReqConfig) (R, error) {
+	if c.Client == nil {
+		c.Client = NewDefaultClient()
 	}
 
-	urlStruct.RawQuery = params.Encode()
+	var data R
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStruct.String(), nil)
+	putData, err := json.Marshal(c.Body)
 	if err != nil {
-		return nil, err
+		return data, err
 	}
 
-	req.Header = headers
+	req, err := http.NewRequest(http.MethodPut, c.URL, bytes.NewBuffer(putData))
+	if err != nil {
+		return data, err
+	}
 
-	return c.DoRequestWithRetries(req)
+	req.Header.Set("Content-Type", "application/json")
+	for header, headerValue := range c.Headers {
+		req.Header.Set(header, headerValue)
+	}
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return data, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return data, parseErrorResponse(resp)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, err
 }
 
-// DoRequestWithRetries does requests with the retries set on client and backoff time
-// just retries request with status code 5xx
-func (c *Client) DoRequestWithRetries(req *http.Request) (*http.Response, error) {
+// Patch makes a PATCH request to the given URL with the given body, headers and client
+func Patch[R any](c PatchReqConfig) (R, error) {
+	if c.Client == nil {
+		c.Client = NewDefaultClient()
+	}
+
+	var data R
+
+	patchData, err := json.Marshal(c.Body)
+	if err != nil {
+		return data, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, c.URL, bytes.NewBuffer(patchData))
+	if err != nil {
+		return data, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	for header, headerValue := range c.Headers {
+		req.Header.Set(header, headerValue)
+	}
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return data, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return data, parseErrorResponse(resp)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, err
+}
+
+// Delete makes a DELETE request to the given URL with the given headers and client
+func Delete[R any](c DeleteReqConfig) (R, error) {
+	if c.Client == nil {
+		c.Client = NewDefaultClient()
+	}
+
+	var data R
+
+	req, err := http.NewRequest(http.MethodDelete, c.URL, nil)
+	if err != nil {
+		return data, err
+	}
+
+	for header, headerValue := range c.Headers {
+		req.Header.Set(header, headerValue)
+	}
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return data, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return data, parseErrorResponse(resp)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, err
+}
+
+// retryTransport is a custom transport for handling retries
+func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	rt := t.underlying
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+
 	var resp *http.Response
 	var err error
 
-	// at least one attempt is made, regardless of how many retries were on config
-	attempts := c.retries + 1
-
-	for i := 0; i < attempts; i++ {
-		resp, err = c.Client.Do(req)
+	// Cache request body
+	var bodyBytes []byte
+	if req.Body != nil {
+		bodyBytes, err = io.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
 		}
+	}
 
-		// Just retry 5xx responses
-		if string(resp.Status[0]) != "5" {
+	for i := 0; i <= t.retries; i++ {
+		// Recreate body reader
+		if bodyBytes != nil {
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
+
+		resp, err = rt.RoundTrip(req)
+		if err == nil && resp.StatusCode < 500 {
 			break
 		}
 
-		// On the last attempt there's no reason to wait the backoff time
-		if i != attempts-1 {
-			time.Sleep(backoffTime)
+		if i < t.retries {
+			time.Sleep(time.Duration(i*i) * 100 * time.Millisecond)
 		}
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	return resp, nil
+}
+
+// commonErrKeys is a list of common error message keys
+var commonErrKeys = []string{
+	"error", "message", "errorMessage",
+	"error_description", "errorDescription",
+	"error_message", "errorMsg",
+	"err", "errorText", "error_text",
+	"description", "desc", "errorDetails", "error_details",
+}
+
+// parseErrorResponse is a helper function to parse error responses from the server
+func parseErrorResponse(errResponse *http.Response) error {
+	code := errResponse.StatusCode
+	text := http.StatusText(code)
+	basicError := fmt.Errorf("%s. %d %s", ErrResponseNotOK, code, text)
+
+	body, err := io.ReadAll(errResponse.Body)
+	if err != nil {
+		return basicError
+	}
+
+	var errorObj map[string]interface{}
+	if err := json.Unmarshal(body, &errorObj); err == nil {
+		for _, key := range commonErrKeys {
+			if msg, ok := errorObj[key].(string); ok && msg != "" {
+				return fmt.Errorf("%s: %s", basicError, msg)
+			}
+		}
+	}
+
+	return basicError
 }

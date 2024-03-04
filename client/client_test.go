@@ -1,274 +1,542 @@
 package client
 
 import (
-	"context"
+	"bytes"
+	"fmt"
+	"io"
 	"net/http"
-	"net/url"
+	"net/http/httptest"
 	"testing"
-	"time"
 
-	"github.com/jarcoal/httpmock"
-	"github.com/pokt-foundation/utils-go/mock-client"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewDefaultClient(t *testing.T) {
-	c := require.New(t)
+// Initialize a default test client with a 5 second timeout
+var testClient = NewDefaultClient()
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+/* ---------- Unit Tests (make test server API calls) ---------- */
 
-	client = NewCustomClient(5, 3*time.Second)
-	c.NotEmpty(client)
-
-	client = NewCustomClientWithOptions(CustomClientOpts{
-		Retries:   5,
-		Timeout:   3 * time.Second,
-		Transport: &http.Transport{},
-	})
-	c.NotEmpty(client)
+type Response struct {
+	Message string `json:"message"`
 }
 
-func TestClient_PostWithURLJSONParams(t *testing.T) {
-	c := require.New(t)
+func Test_Get_Unit(t *testing.T) {
+	tests := []struct {
+		name           string
+		serverResponse string
+		want           Response
+		expectError    bool
+	}{
+		{
+			name:           "should successfully retrieve data",
+			serverResponse: `{"message":"success"}`,
+			want:           Response{Message: "success"},
+			expectError:    false,
+		},
+		{
+			name:           "should handle server error",
+			serverResponse: `Server Error`,
+			want:           Response{},
+			expectError:    true,
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			// Setup mock server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if test.expectError {
+					http.Error(w, test.serverResponse, http.StatusInternalServerError)
+				} else {
+					fmt.Fprint(w, test.serverResponse)
+				}
+			}))
+			defer server.Close()
 
-	mock.AddMockedResponseFromFile(http.MethodPost, "https://dummy.com", http.StatusCreated, "../mock-client/samples/dummy.json")
+			// Execute Get request
+			got, err := Get[Response](GetReqConfig{
+				URL:    server.URL,
+				Client: testClient,
+			})
 
-	response, err := client.PostWithURLJSONParams("https://dummy.com", map[string]string{
-		"ohana": "family",
-	}, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
-
-	response, err = client.PostWithURLJSONParams("https://dummy.com", nil, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.want, got)
+			}
+		})
+	}
 }
 
-func TestClient_PostWithURLJSONParamsWithCtx(t *testing.T) {
-	c := require.New(t)
+func Test_Post_Unit(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           any
+		serverResponse string
+		want           Response
+		expectError    bool
+	}{
+		{
+			name:           "should successfully post data",
+			body:           map[string]string{"input": "test"},
+			serverResponse: `{"message":"success"}`,
+			want:           Response{Message: "success"},
+			expectError:    false,
+		},
+		{
+			name:           "should handle server error on post",
+			body:           map[string]string{"input": "test"},
+			serverResponse: `Server Error`,
+			want:           Response{},
+			expectError:    true,
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			// Setup mock server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if test.expectError {
+					http.Error(w, test.serverResponse, http.StatusInternalServerError)
+				} else {
+					fmt.Fprint(w, test.serverResponse)
+				}
+			}))
+			defer server.Close()
 
-	mock.AddMockedResponseFromFile(http.MethodPost, "https://dummy.com", http.StatusCreated, "../mock-client/samples/dummy.json")
+			// Execute Post request
+			got, err := Post[Response](PostReqConfig{
+				URL:    server.URL,
+				Body:   test.body,
+				Client: testClient,
+			})
 
-	response, err := client.PostWithURLJSONParamsWithCtx(context.Background(), "https://dummy.com", map[string]string{
-		"ohana": "family",
-	}, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
-
-	response, err = client.PostWithURLJSONParamsWithCtx(context.Background(), "https://dummy.com", nil, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.want, got)
+			}
+		})
+	}
 }
 
-func TestClient_PutWithURLJSONParams(t *testing.T) {
-	c := require.New(t)
+func Test_Put_Unit(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           any
+		serverResponse string
+		want           Response
+		expectError    bool
+	}{
+		{
+			name:           "should successfully put data",
+			body:           map[string]string{"input": "update"},
+			serverResponse: `{"message":"updated"}`,
+			want:           Response{Message: "updated"},
+			expectError:    false,
+		},
+		{
+			name:           "should handle server error on put",
+			body:           map[string]string{"input": "update"},
+			serverResponse: `Server Error`,
+			want:           Response{},
+			expectError:    true,
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			// Setup mock server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if test.expectError {
+					http.Error(w, test.serverResponse, http.StatusInternalServerError)
+				} else {
+					fmt.Fprint(w, test.serverResponse)
+				}
+			}))
+			defer server.Close()
 
-	mock.AddMockedResponseFromFile(http.MethodPut, "https://dummy.com", http.StatusCreated, "../mock-client/samples/dummy.json")
+			// Execute Put request
+			got, err := Put[Response](PutReqConfig{
+				URL:    server.URL,
+				Body:   test.body,
+				Client: testClient,
+			})
 
-	response, err := client.PutWithURLJSONParams("https://dummy.com", map[string]string{
-		"ohana": "family",
-	}, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
-
-	response, err = client.PutWithURLJSONParams("https://dummy.com", nil, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.want, got)
+			}
+		})
+	}
 }
 
-func TestClient_PutWithURLJSONParamsWithCtx(t *testing.T) {
-	c := require.New(t)
+func Test_Patch_Unit(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           any
+		serverResponse string
+		want           Response
+		expectError    bool
+	}{
+		{
+			name:           "should successfully patch data",
+			body:           map[string]string{"input": "modify"},
+			serverResponse: `{"message":"modified"}`,
+			want:           Response{Message: "modified"},
+			expectError:    false,
+		},
+		{
+			name:           "should handle server error on patch",
+			body:           map[string]string{"input": "modify"},
+			serverResponse: `Server Error`,
+			want:           Response{},
+			expectError:    true,
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			// Setup mock server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if test.expectError {
+					http.Error(w, test.serverResponse, http.StatusInternalServerError)
+				} else {
+					fmt.Fprint(w, test.serverResponse)
+				}
+			}))
+			defer server.Close()
 
-	mock.AddMockedResponseFromFile(http.MethodPut, "https://dummy.com", http.StatusCreated, "../mock-client/samples/dummy.json")
+			// Execute Patch request
+			got, err := Patch[Response](PatchReqConfig{
+				URL:    server.URL,
+				Body:   test.body,
+				Client: testClient,
+			})
 
-	response, err := client.PutWithURLJSONParamsWithCtx(context.Background(), "https://dummy.com", map[string]string{
-		"ohana": "family",
-	}, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
-
-	response, err = client.PutWithURLJSONParamsWithCtx(context.Background(), "https://dummy.com", nil, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.want, got)
+			}
+		})
+	}
 }
 
-func TestClient_PostWithURLEncodedParams(t *testing.T) {
-	c := require.New(t)
+func Test_Delete_Unit(t *testing.T) {
+	tests := []struct {
+		name           string
+		serverResponse string
+		wantStatusCode int
+		expectError    bool
+	}{
+		{
+			name:           "should successfully delete data",
+			serverResponse: `{"message":"deleted"}`,
+			wantStatusCode: http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:           "should handle server error on delete",
+			serverResponse: `Server Error`,
+			wantStatusCode: http.StatusInternalServerError,
+			expectError:    true,
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			// Setup mock server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if test.expectError {
+					http.Error(w, test.serverResponse, test.wantStatusCode)
+				} else {
+					w.WriteHeader(test.wantStatusCode)
+					fmt.Fprint(w, test.serverResponse)
+				}
+			}))
+			defer server.Close()
 
-	mock.AddMockedResponseFromFile(http.MethodPost, "https://dummy.com", http.StatusCreated, "../mock-client/samples/dummy.json")
+			// Execute Delete request
+			config := DeleteReqConfig{
+				URL:    server.URL,
+				Client: testClient,
+			}
+			_, err := Delete[Response](config)
 
-	params := url.Values{}
-	params.Add("ohana", "family")
-
-	response, err := client.PostWithURLEncodedParams("https://dummy.com", params, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
-
-	response, err = client.PostWithURLJSONParams("https://dummy.com", nil, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(http.StatusOK, test.wantStatusCode)
+			}
+		})
+	}
 }
 
-func TestClient_PostWithURLEncodedParamsWithCtx(t *testing.T) {
-	c := require.New(t)
+func Test_parseErrorResponse(t *testing.T) {
+	tests := []struct {
+		name           string
+		response       *http.Response
+		wantErrMessage string
+	}{
+		{
+			name: "should return basic error for non-JSON response",
+			response: &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Status:     "500 Internal Server Error",
+				Body:       io.NopCloser(bytes.NewBufferString("Internal Server Error")),
+			},
+			wantErrMessage: "response not OK. 500 Internal Server Error",
+		},
+		{
+			name: "should return detailed error for JSON response with common error key",
+			response: &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Status:     "400 Bad Request",
+				Body:       io.NopCloser(bytes.NewBufferString(`{"error": "Invalid request"}`)),
+			},
+			wantErrMessage: "response not OK. 400 Bad Request: Invalid request",
+		},
+		{
+			name: "should handle empty error message in JSON response",
+			response: &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Status:     "400 Bad Request",
+				Body:       io.NopCloser(bytes.NewBufferString(`{"error": ""}`)),
+			},
+			wantErrMessage: "response not OK. 400 Bad Request",
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
-
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
-	mock.AddMockedResponseFromFile(http.MethodPost, "https://dummy.com", http.StatusCreated, "../mock-client/samples/dummy.json")
-
-	params := url.Values{}
-	params.Add("ohana", "family")
-
-	response, err := client.PostWithURLEncodedParamsWithCtx(context.Background(), "https://dummy.com", params, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
-
-	response, err = client.PostWithURLJSONParamsWithCtx(context.Background(), "https://dummy.com", nil, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusCreated, response.StatusCode)
-	c.NoError(response.Body.Close())
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := parseErrorResponse(test.response)
+			require.EqualError(t, err, test.wantErrMessage)
+		})
+	}
 }
 
-func TestClient_GetWithURLAndParams(t *testing.T) {
-	c := require.New(t)
+/* ---------- Integration Tests (make actual API calls) ---------- */
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+type (
+	PokemonAPIResponse struct {
+		Name string `json:"name"`
+	}
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+	HTTPBinResponse struct {
+		JSON string `json:"json"`
+	}
+)
 
-	mock.AddMockedResponseFromFile(http.MethodGet, "https://dummy.com", http.StatusOK, "../mock-client/samples/dummy.json")
+func Test_Get_Integration_Unit(t *testing.T) {
+	tests := []struct {
+		name        string
+		pokemonID   string
+		wantName    string
+		expectError bool
+	}{
+		{
+			name:        "should successfully retrieve bulbasaur name",
+			pokemonID:   "1",
+			wantName:    "bulbasaur",
+			expectError: false,
+		},
+		{
+			name:        "should successfully retrieve scyther name",
+			pokemonID:   "123",
+			wantName:    "scyther",
+			expectError: false,
+		},
+	}
 
-	params := url.Values{}
-	params.Set("family", "ohana")
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	response, err := client.GetWithURLAndParams("https://dummy.com", params, http.Header{})
-	c.NoError(err)
+			// Execute Get request
+			resp, err := Get[PokemonAPIResponse](GetReqConfig{
+				URL:    fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", test.pokemonID),
+				Client: testClient,
+			})
 
-	c.NotEmpty(response)
-	c.Equal(http.StatusOK, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.wantName, resp.Name)
+			}
+		})
+	}
 }
 
-func TestClient_GetWithURLAndParamsWithCtx(t *testing.T) {
-	c := require.New(t)
+func Test_Post_Integration(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           any
+		wantJSON       HTTPBinResponse
+		wantStatusCode int
+		expectError    bool
+	}{
+		{
+			name:           "should successfully post data to httpbin and validate json response",
+			body:           `{"lisa": "needs braces"}`,
+			wantJSON:       HTTPBinResponse{JSON: `{"lisa": "needs braces"}`},
+			wantStatusCode: 200,
+			expectError:    false,
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			// Execute Post request
+			resp, err := Post[HTTPBinResponse](PostReqConfig{
+				URL:    "https://httpbin.org/post",
+				Body:   test.body,
+				Client: testClient,
+			})
 
-	mock.AddMockedResponseFromFile(http.MethodGet, "https://dummy.com", http.StatusOK, "../mock-client/samples/dummy.json")
-
-	params := url.Values{}
-	params.Set("family", "ohana")
-
-	response, err := client.GetWithURLAndParamsWithCtx(context.Background(), "https://dummy.com", params, http.Header{})
-	c.NoError(err)
-
-	c.NotEmpty(response)
-	c.Equal(http.StatusOK, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.wantJSON, resp)
+			}
+		})
+	}
 }
 
-func TestClient_DoRequestWithRetries(t *testing.T) {
-	c := require.New(t)
+func Test_Put_Integration(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           string
+		wantJSON       HTTPBinResponse
+		wantStatusCode int
+		expectError    bool
+	}{
+		{
+			name:           "should successfully put data to httpbin and validate json response",
+			body:           `{"quote":"I am that guy"}`,
+			wantJSON:       HTTPBinResponse{JSON: `{"quote":"I am that guy"}`},
+			wantStatusCode: 200,
+			expectError:    false,
+		},
+	}
 
-	client := NewDefaultClient()
-	c.NotEmpty(client)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	client.retries = 2
+			// Execute Put request
+			resp, err := Put[HTTPBinResponse](PutReqConfig{
+				URL:    "https://httpbin.org/put",
+				Body:   test.body,
+				Client: testClient,
+			})
 
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.wantJSON, resp)
+			}
+		})
+	}
+}
 
-	mock.AddMultipleMockedPlainResponses(http.MethodGet, "https://dummy.com", []int{
-		http.StatusInternalServerError,
-		http.StatusOK,
-	}, []string{
-		`{"ok": 1}`,
-		`{"not_ok": 2}`,
-	})
+func Test_Patch_Integration(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           string
+		wantJSON       HTTPBinResponse
+		wantStatusCode int
+		expectError    bool
+	}{
+		{
+			name:           "should successfully patch data to httpbin and validate json response",
+			body:           `{"quote":"Even the smallest person can change the course of the future."}`,
+			wantJSON:       HTTPBinResponse{JSON: `{"quote":"Even the smallest person can change the course of the future."}`},
+			wantStatusCode: 200,
+			expectError:    false,
+		},
+	}
 
-	params := url.Values{}
-	params.Set("family", "ohana")
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
 
-	response, err := client.GetWithURLAndParams("https://dummy.com", params, http.Header{})
-	c.NoError(err)
+			// Execute Patch request
+			resp, err := Patch[HTTPBinResponse](PatchReqConfig{
+				URL:    "https://httpbin.org/patch",
+				Body:   test.body,
+				Client: testClient,
+			})
 
-	c.NotEmpty(response)
-	c.Equal(http.StatusOK, response.StatusCode)
-	c.NoError(response.Body.Close())
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+				c.Equal(test.wantJSON, resp)
+			}
+		})
+	}
+}
+
+func Test_Delete_Integration(t *testing.T) {
+	tests := []struct {
+		name           string
+		wantStatusCode int
+		expectError    bool
+	}{
+		{
+			name:           "should successfully delete data at httpbin and validate json response",
+			wantStatusCode: 200,
+			expectError:    false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := require.New(t)
+
+			// Execute Delete request
+			_, err := Delete[HTTPBinResponse](DeleteReqConfig{
+				URL:    "https://httpbin.org/delete",
+				Client: testClient,
+			})
+
+			// Validate
+			if test.expectError {
+				c.Error(err)
+			} else {
+				c.NoError(err)
+			}
+		})
+	}
 }
